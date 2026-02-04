@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type']
+stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping']
 inputDocuments: ['product-brief-openai-adapter-2026-02-02.md']
 workflowType: 'prd'
 briefCount: 1
@@ -572,4 +572,120 @@ From these journeys, we identify these core requirements:
 - **Observability**: Health/ready endpoints for monitoring
 - **Graceful shutdown**: Complete in-flight requests before termination
 - **Error isolation**: Adapter failures don't cascade to OpenAI
+
+## Project Scoping & Phased Development
+
+### MVP Strategy & Philosophy
+
+**MVP Approach:** Problem-Solving MVP - Validate that QA/DevOps teams can achieve model flexibility and cost savings through transparent API translation without application refactoring.
+
+**Core Value Hypothesis:** Teams will adopt an infrastructure-layer proxy solution over SDK abstraction layers when it eliminates code changes and production deployment risk.
+
+**MVP Success Criteria:**
+- QA engineers successfully switch models via configuration in <5 minutes
+- Application code remains completely unchanged
+- Cost savings measurable in test environments
+- DevOps autonomy achieved (zero developer escalations)
+
+**Resource Profile:**
+- **Team Size:** 1-2 experienced developers
+- **Required Expertise:** API/HTTP proxy patterns, JSON transformation, state management, Docker containerization
+- **Complexity Level:** Medium (core infrastructure with stateful conversation management)
+
+### MVP Feature Set (Phase 1)
+
+**Core User Journeys Supported:**
+- Journey 1: QA Engineer cost-effective testing with model switching
+- Journey 2: DevOps Engineer infrastructure management autonomy
+- Journey 3: Developer transparent debugging through adapter
+
+**Must-Have Capabilities:**
+
+**API Translation:**
+- Dual endpoint architecture (`/v1/responses`, `/v1/chat/completions`)
+- Bidirectional translation (Response API ↔ Chat Completions API)
+- Pass-through mode when no translation needed
+- Support for common features: text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP, image generation, reasoning summaries
+
+**State Management:**
+- Persistent conversation state storage (external state store - technology TBD in architecture phase)
+- Conversation hash → correlation ID mapping
+- TTL-based state expiration
+- Hash miss handling with documented limitations
+
+**Configuration & Operations:**
+- Docker container packaging
+- Environment variable configuration
+- **Startup configuration validation** (validate URL format, required vars, state storage connectivity)
+- **Clear error messages on configuration failures** (fail fast at startup, not at runtime)
+- Health (`/health`) and readiness (`/ready`) endpoints
+- Structured logging with correlation ID tracking
+- Basic error handling with transparent pass-through
+
+**Documentation:**
+- Complete field-by-field translation mapping
+- Feature compatibility matrix
+- Deployment guide with examples
+- Configuration reference with validation rules
+- Quick start walkthrough
+
+**Explicitly Out of Scope for MVP:**
+- Authentication/authorization
+- API key management
+- TLS/SSL support
+- Advanced observability (metrics, tracing)
+- Hot-reload configuration
+- Production-grade performance optimization
+
+### Post-MVP Features
+
+**Phase 2 (Growth) - Production Readiness:**
+- Security hardening (authentication, authorization, API key management)
+- TLS/SSL support
+- Enhanced observability (Prometheus, Datadog, structured tracing)
+- Advanced configuration validation (deep semantic checks)
+- Hot-reload configuration updates
+- Support for additional OpenAI endpoints
+- Performance optimization for high-volume scenarios
+- High-availability state storage configuration
+
+**Phase 3 (Expansion) - Platform Evolution:**
+- Multi-provider support (Anthropic, Azure OpenAI, Google Vertex AI)
+- Advanced deployment patterns (Kubernetes operators, Helm charts)
+- Service mesh integration (Istio, Linkerd)
+- Intelligent translation feature detection and warnings
+- Automated compatibility testing against API changes
+- Advanced state management strategies (intelligent prefix matching)
+- Configuration migration tools
+
+### Scoping Rationale
+
+**Why State Management is MVP:**
+Real-world applications use multi-turn conversations. Without state management, the adapter can't support the primary use case (QA testing conversational apps). Conversation state is non-negotiable for validation.
+
+**Why Startup Configuration Validation is MVP:**
+The 5-minute model switching goal requires immediate feedback on configuration errors. Silent runtime failures create extended debugging sessions. Startup validation ensures DevOps gets clear error messages immediately when misconfiguration occurs.
+
+**Why Authentication is Post-MVP:**
+Test and staging environments typically operate on private networks without public exposure. Teams can secure the adapter at the network level initially. Authentication becomes critical when moving toward broader deployment or production use.
+
+**Why Pass-Through Mode is MVP:**
+Performance matters for cost savings validation. If translation overhead eliminates the cost benefit, the value proposition fails. Pass-through mode ensures zero overhead when translation isn't needed.
+
+### Risk Mitigation Strategy
+
+**Technical Risks:**
+- **State Management Complexity:** Select proven state storage technology during architecture phase, accept hash miss limitations for MVP, document behavior clearly
+- **API Format Evolution:** Fail fast on unsupported features with clear error messages, maintain comprehensive translation documentation
+- **Performance Overhead:** Implement pass-through mode, performance test early against realistic workloads
+- **Configuration Errors:** Startup validation prevents runtime surprises, clear error messages reduce debugging time
+
+**Market Risks:**
+- **Adoption Uncertainty:** Focus on deployment simplicity, measure actual cost savings, gather feedback from QA/DevOps early adopters
+- **SDK Competition:** Emphasize zero-refactor advantage, document production risk elimination vs abstraction layers
+
+**Resource Risks:**
+- **Team Size Constraints:** If limited to 1 developer, consider deferring pass-through optimization (accept translation overhead initially)
+- **Timeline Constraints:** Prioritize single translation direction first (Response→Completions OR Completions→Response), add bidirectional support in subsequent iteration
+- **Expertise Gaps:** Team should have prior experience with API proxies and state management patterns; learning curve may impact delivery
 
