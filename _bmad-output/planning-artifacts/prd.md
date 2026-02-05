@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping']
+stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional']
 inputDocuments: ['product-brief-openai-adapter-2026-02-02.md']
 workflowType: 'prd'
 briefCount: 1
@@ -688,4 +688,81 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Team Size Constraints:** If limited to 1 developer, consider deferring pass-through optimization (accept translation overhead initially)
 - **Timeline Constraints:** Prioritize single translation direction first (Response→Completions OR Completions→Response), add bidirectional support in subsequent iteration
 - **Expertise Gaps:** Team should have prior experience with API proxies and state management patterns; learning curve may impact delivery
+
+## Functional Requirements
+
+### API Translation & Routing
+
+- FR1: System can receive requests at Response API endpoint (`/v1/responses`)
+- FR2: System can receive requests at Chat Completions API endpoint (`/v1/chat/completions`)
+- FR3: System can detect model name from incoming request payload
+- FR4: System can determine target API format based on model-to-API mapping
+- FR5: System can translate Response API requests to Chat Completions API format
+- FR6: System can translate Chat Completions API requests to Response API format
+- FR7: System can translate Chat Completions API responses to Response API format
+- FR8: System can translate Response API responses to Chat Completions API format
+- FR9: System can forward requests in pass-through mode when source format matches target format
+- FR10: System can forward requests to configured OpenAI endpoint
+
+### Conversation State Management
+
+- FR11: System can bridge between stateful (Response API correlation-based) and stateless (Chat Completions history-based) conversation paradigms
+- FR12: System can maintain conversation continuity when translating from Chat Completions format to Response API format
+- FR13: System can maintain conversation continuity when translating from Response API format to Chat Completions format
+- FR14: System can store conversation state in external persistent storage
+- FR15: System can retrieve conversation state for ongoing conversations
+- FR16: System can detect when incoming requests are continuations of existing conversations
+- FR17: System can handle new conversation initialization
+- FR18: System can expire conversation state after configured TTL
+- FR19: System can handle conversation matching failures with documented behavior
+
+> **Architecture Phase Dependency:** The mechanism for tracking and matching conversations across different API paradigms (correlation ID mapping, conversation detection algorithms, state synchronization strategies) will be determined during architecture phase. Multiple approaches exist (hash-based matching, sequence-based detection, hybrid strategies) with different trade-offs for accuracy, performance, and complexity. Architecture phase will evaluate options and select appropriate strategy based on MVP constraints.
+
+### Configuration & Deployment
+
+- FR20: System can load configuration from environment variables at startup
+- FR21: System can validate target URL format before accepting requests
+- FR22: System can validate required environment variables are present
+- FR23: System can test connectivity to state storage at startup
+- FR24: System can fail startup with clear error messages when configuration invalid
+- FR25: System can accept model-to-API mapping configuration
+- FR26: System can be deployed as Docker container
+- FR27: System can accept configuration for conversation TTL
+- FR28: System can accept configuration for upstream timeout values
+
+### Health & Observability
+
+- FR29: System can provide health status via `/health` endpoint
+- FR30: System can provide readiness status via `/ready` endpoint
+- FR31: System can generate correlation IDs for request tracking
+- FR32: System can extract correlation IDs from incoming requests when available
+- FR33: System can log routing decisions with correlation ID
+- FR34: System can log translation mode applied (bidirectional or pass-through)
+- FR35: System can log request URIs for troubleshooting
+- FR36: System can output structured JSON logs to stdout
+
+### Error Handling & Reliability
+
+- FR37: System can pass through OpenAI error responses unchanged (4xx, 5xx)
+- FR38: System can return 422 Unprocessable Entity for unsupported features
+- FR39: System can return 400 Bad Request for invalid request format
+- FR40: System can return 500 Internal Server Error for adapter failures
+- FR41: System can return 504 Gateway Timeout when upstream timeout exceeded
+- FR42: System can include correlation IDs in error responses
+- FR43: System can log detailed error information with stack traces for adapter failures
+- FR44: System can time out upstream requests after configured duration
+
+### Feature Translation Support
+
+- FR45: System can detect feature types in incoming requests (e.g., vision, function calling, structured outputs)
+- FR46: System can validate whether detected features are translatable between API formats
+- FR47: System can perform field-level translation for features with protocol equivalence
+- FR48: System can fail fast with 422 Unprocessable Entity when feature translation not supported
+- FR49: System can provide error response indicating which specific feature cannot be translated
+- FR50: System can log feature translation attempts with success/failure status
+- FR51: System can maintain feature compatibility matrix for translation decisions
+
+> **Architecture Phase Dependency:** The exact list of features that can be successfully translated between Response API and Chat Completions API formats will be determined during architecture phase through detailed API format research and field mapping analysis. MVP targets common conversational features (text generation, basic function calling) with graceful degradation for features where protocol incompatibilities prevent clean translation.
+>
+> **MVP Target Features (Subject to Architecture Validation):** text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP, image generation, reasoning summaries. Final feature support matrix will be documented as part of architecture deliverables.
 
