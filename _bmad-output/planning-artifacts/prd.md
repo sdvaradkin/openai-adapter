@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional']
+stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish']
 inputDocuments: ['product-brief-openai-adapter-2026-02-02.md']
 workflowType: 'prd'
 briefCount: 1
@@ -21,9 +21,9 @@ classification:
 ## Success Criteria
 
 ### User Success
-- **Independent Operation**: QA and DevOps teams can switch between models without requiring developer assistance
+- **Independent Operation**: QA and DevOps teams switch between models without developer assistance
 - **Rapid Configuration**: Model switching completed within ~5 minutes via configuration changes only
-- **Application Transparency**: Applications remain unaware of the adapter's presence - zero code modifications required
+- **Application Transparency**: Applications remain unaware of adapter presence - zero code modifications required
 
 ### Technical Success
 **Priority 1: Reliability**
@@ -37,25 +37,27 @@ classification:
 - State management for multi-turn conversations handled accurately
 
 **Priority 3: Performance**
-- Translation overhead does not negate cost savings from using smaller models
+- Translation overhead does not negate cost savings from smaller models
 - Pass-through mode introduces minimal latency
 - Acceptable response times for test workloads
 
 ### Measurable Outcomes
 - Model switches completed in ≤5 minutes (configuration-only changes)
 - Zero developer escalations for routine model switching tasks
-- Application code remains unchanged across model switches
+- Application code unchanged across model switches
 
 ## Product Scope
 
 ### MVP - Minimum Viable Product
 - **Dual Endpoint Architecture**: 
-  - Response API endpoint (`/v1/responses`) with Completions API translation when needed
-  - Completions API endpoint (`/v1/chat/completions`) with Response API translation when needed
-- **Bidirectional Translation**: Both directions supported (Response ↔ Completions)
+  - Response API endpoint (`/v1/responses`) with Chat Completions API translation when needed
+  - Chat Completions API endpoint (`/v1/chat/completions`) with Response API translation when needed
+- **Bidirectional Translation**: Both directions supported (Response ↔ Chat Completions)
+- **Conversation State Management**: Stateful conversation tracking for Chat Completions → Response API translation
 - **Pass-Through Mode**: Zero overhead when incoming format matches target model format
-- **Deployment**: Docker container with standard packaging
-- **Configuration**: Environment variable-based configuration for target OpenAI endpoint and model selection
+- **Streaming Support**: Both streaming and non-streaming responses supported
+- **Deployment**: Docker container with conversation state persistence
+- **Configuration**: Environment variable-based configuration for target OpenAI endpoint and model-to-API mapping
 
 ### Growth Features (Post-MVP)
 - **Security**: Authentication, authorization, API key management, TLS/SSL support
@@ -100,8 +102,8 @@ The application makes Response API calls as before, but now they're routed to th
 **Journey:**
 Jordan pulls the openai-adapter Docker image and reviews the environment variables needed:
 - `ADAPTER_TARGET_URL` (OpenAI's base URL)
-- `ADAPTER_TARGET_MODEL` (which model to use)
-- `OPENAI_API_KEY` (for authenticating to OpenAI)
+- `MODEL_API_MAPPING` (model-to-API format mapping configuration)
+- `OPENAI_API_KEY` (for authenticating to OpenAI - passed through to OpenAI)
 
 Jordan adds the adapter to the docker-compose.yml for staging:
 
@@ -110,8 +112,10 @@ openai-adapter:
   image: openai-adapter:latest
   environment:
     ADAPTER_TARGET_URL: https://api.openai.com/v1
-    ADAPTER_TARGET_MODEL: gpt-3.5-turbo
+    MODEL_API_MAPPING: /config/model-mapping.json
     OPENAI_API_KEY: ${OPENAI_API_KEY}
+  volumes:
+    - ./config:/config
   ports:
     - "8080:8080"
 ```
@@ -176,8 +180,9 @@ From these journeys, we identify these core requirements:
 **Configuration Management:**
 - Environment variable-based configuration:
   - `ADAPTER_TARGET_URL`: Target OpenAI base URL
-  - `ADAPTER_TARGET_MODEL`: Model selection for translation routing
-- Configuration loaded at container startup
+  - `MODEL_API_MAPPING`: Model-to-API format mapping
+- Configuration loaded at container startup with validation
+- Invalid configuration fails startup with clear error messages
 - No hot-reload required for MVP
 
 ### Error Handling & Reliability
@@ -261,62 +266,52 @@ From these journeys, we identify these core requirements:
 
 ### State Management Architecture
 
-**Critical Requirement:** The adapter bridges fundamentally different conversation paradigms:
+**Architectural Decision:** The adapter maintains **conversation state** for Chat Completions → Response API translation flows.
 
 **API Paradigm Differences:**
-- **Response API**: Stateful - uses correlation IDs to maintain server-side conversation context
-- **Chat Completions API**: Stateless - requires full conversation history in every request
+- **Response API**: Stateful - uses correlation IDs to maintain server-side conversation context (managed by OpenAI)
+- **Chat Completions API**: Stateless - requires full conversation history in every request (managed by application)
 
 **Response API → Chat Completions Translation:**
 
-**Adapter Behavior:**
+**Adapter Behavior (No State Required):**
 1. Extract correlation ID from incoming Response API request
-2. Retrieve conversation history from persistent state storage (keyed by correlation ID)
-3. Append new message to conversation buffer
-4. Construct complete message array for Chat Completions format
-5. Send full conversation context to OpenAI Chat Completions endpoint
-6. Receive response from OpenAI
-7. Store updated conversation in state storage
-8. Return response in Response API format (single message, not full history)
+2. Extract message from request payload
+3. Pass correlation ID to OpenAI Response API (OpenAI maintains conversation state)
+4. Receive OpenAI response
+5. Translate response structure to Chat Completions format
+6. Return translated response
+
+**Rationale:** OpenAI manages conversation state via correlation IDs - adapter only translates formats.
 
 **Chat Completions → Response API Translation:**
 
-**Adapter Behavior:**
+**Adapter Behavior (State Storage Required):**
 1. Receive Chat Completions request with full message array
-2. Hash conversation history to detect existing conversations
-3. Check state storage for matching conversation hash
-4. **If hash found:** Retrieve cached correlation ID, send only new message(s) to Response API
-5. **If hash not found:** New conversation detected
-   - Generate new correlation ID
-   - Initialize conversation state in Response API
-   - Cache conversation hash → correlation ID mapping
-6. Return response with correlation ID for future requests
+2. Generate unique request ID for duplicate detection
+3. Check for duplicate request ID - if found, reject with 400 Bad Request
+4. Extract or generate conversation ID from request metadata
+5. Retrieve conversation state from storage (correlation ID, message history)
+6. Determine current message from message array (last message in conversation)
+7. Send current message to OpenAI Response API with correlation ID
+8. Receive response from OpenAI
+9. Update conversation state in storage (add response to history)
+10. Transform response to Chat Completions format (include updated message array)
+11. Return translated response
 
-**State Storage Requirements:**
+**State Storage Requirements (High-Level):**
 
-**MVP Requirements:**
-- **Persistent state storage** for durability and horizontal scaling capability
-- **TTL-based expiration** for conversation cleanup (configurable, default suitable for test environments)
-- **Conversation hash → correlation ID mapping** for continuation detection
-- **Message history storage** keyed by correlation ID
+**Storage Characteristics:**
+- Persistent storage for conversation state across requests
+- Supports automatic expiration/cleanup of stale data (default: 24 hours)
+- Handles concurrent access safely for horizontal scaling
+- Storage implementation details deferred to architecture phase
 
-**Known Limitations (MVP):**
-- Conversation hash matching optimized for sequential message additions
-- Batch message additions or conversation edits may create new conversation context (hash miss)
-- Hash misses require conversation history replay (see architecture phase for detailed approach)
-- Logged warnings when hash misses occur for debugging
-
-**→ Architecture Phase Decisions Required:** 
-- State storage technology selection (Redis, database, or alternative)
-- Detailed conversation history replay strategy for hash miss scenarios
-- State persistence and replication approach
-
-**Post-MVP Enhancements:**
-- High availability state storage configuration
-- Intelligent prefix matching to detect partial conversation matches
-- Optimized history replay strategies for batch message scenarios
-- Configurable state strictness modes (fast vs correct)
-- State migration tools for storage upgrades
+**Architectural Implications:**
+- Applications using Response API format maintain conversation continuity through OpenAI's server-side correlation ID tracking (no adapter state needed)
+- Applications using Chat Completions format provide full message history; adapter stores conversation → Response API correlation ID mapping
+- Chat Completions → Response API translation enables multi-turn conversations
+- Storage architecture (embedded vs external, technology selection, data model) will be defined in architecture document
 
 ### Data Schemas & API Translation
 
@@ -345,6 +340,17 @@ From these journeys, we identify these core requirements:
 - Direct field mapping between API formats
 - Preserve semantic meaning across transformations
 - Validate transformed output maintains functional equivalence
+
+**For Unknown Fields:**
+- **Pass-through strategy**: Unknown fields in OpenAI responses passed through unchanged
+- Preserves forward compatibility when OpenAI adds new fields
+- Adapter logs unknown fields for monitoring
+
+**For Streaming Responses:**
+- **Both APIs support streaming**: Server-Sent Events (SSE) format
+- Pass-through mode: Stream forwarded directly (no buffering)
+- Translation mode: Translate each SSE chunk, preserve streaming semantics
+- Timeout applies to full stream completion (not individual chunks)
 
 **For Unsupported Features:**
 - **Fail fast**: Return specific error immediately (no silent failures)
@@ -375,19 +381,34 @@ From these journeys, we identify these core requirements:
 **Environment Variables:**
 
 **Required Configuration:**
-- `ADAPTER_TARGET_URL` - Real OpenAI API base URL
-- `STATE_STORAGE_URL` - Connection string for state storage system
-- `MODEL_API_MAPPING` - Model name to API type mapping (format TBD in architecture phase)
+- `ADAPTER_TARGET_URL` - Real OpenAI API base URL (may contain different endpoint paths for Response API vs Chat Completions API)
+- `MODEL_API_MAPPING` - Model name to API type mapping (JSON format or file path, loaded at startup)
 
 **Optional Configuration:**
-- `CONVERSATION_TTL` - State expiration time in seconds (default suitable for test environments)
 - `UPSTREAM_TIMEOUT` - OpenAI request timeout in seconds (default: 60)
+- `MAX_CONCURRENT_CONNECTIONS` - Maximum concurrent connections (default: 1000)
+- `MAX_REQUEST_SIZE_MB` - Maximum request payload size in MB (default: 10)
+- `MAX_JSON_DEPTH` - Maximum JSON nesting depth for validation (default: 100, applies to all modes)
+- `CONVERSATION_STATE_TTL` - Conversation state expiration in seconds (default: 86400 = 24 hours)
 - `LOG_LEVEL` - Logging verbosity (default: INFO)
 
 **Model-to-API Mapping Configuration:**
 - Maps model names to API types (Response API vs Chat Completions API)
-- Can be provided as environment variable or configuration file
-- Format and loading mechanism determined in architecture phase
+- Provided as JSON object (env variable) or JSON file path
+- Loaded and validated at container startup (#1)
+- Invalid mappings cause startup failure with specific error message (#2, #4)
+- MVP supports exact model name matching only
+- Post-MVP: Model name normalization (aliases, version resolution) (#3)
+
+**Example MODEL_API_MAPPING:**
+```json
+{
+  "gpt-4": "response",
+  "gpt-4-turbo": "response",
+  "gpt-3.5-turbo": "chat_completions",
+  "gpt-3.5-turbo-16k": "chat_completions"
+}
+```
 
 **Configuration Loading:**
 - Loaded at container startup
@@ -461,11 +482,13 @@ From these journeys, we identify these core requirements:
 
 **Unit Tests (60% of test coverage):**
 - Translation logic for both directions (Response ↔ Chat Completions)
-- State management operations (store, retrieve, expiration)
+- Conversation state storage and retrieval
+- Request ID duplicate detection
+- Streaming response translation
 - Error handling paths
 - Configuration parsing and validation
 - Model-to-API mapping lookups
-- Correlation ID generation and tracking
+- Correlation ID and conversation ID tracking
 
 **Contract Tests (30% of test coverage):**
 - **Scope**: Validate adapter honors OpenAI API contracts
@@ -521,7 +544,8 @@ From these journeys, we identify these core requirements:
 **3. Deployment Guide:**
 - Docker deployment instructions
 - Environment variable reference
-- State storage setup requirements
+- State storage setup and configuration
+- State storage connectivity troubleshooting
 - Health check configuration
 - Logging configuration
 
@@ -556,10 +580,10 @@ From these journeys, we identify these core requirements:
 - **Concurrency Model**: Handle multiple simultaneous translations
 
 **Deployment Architecture:**
-- **Single Docker container** for adapter service
-- **External state storage dependency** (technology TBD in architecture phase)
-- **12-factor app compliance** (config via environment, stateless container)
-- **Standard container orchestration** compatibility (Docker Compose, Kubernetes)
+- **Single Docker container** for adapter service with external state storage dependency
+- **Stateful conversation management** - external state storage for conversation persistence
+- **12-factor app compliance** (config via environment, state externalized to backing service)
+- **Standard container orchestration** compatibility (Docker Compose, Kubernetes, Helm charts)
 
 **Non-Functional Requirements:**
 - **Startup time**: < 5 seconds
@@ -589,8 +613,8 @@ From these journeys, we identify these core requirements:
 
 **Resource Profile:**
 - **Team Size:** 1-2 experienced developers
-- **Required Expertise:** API/HTTP proxy patterns, JSON transformation, state management, Docker containerization
-- **Complexity Level:** Medium (core infrastructure with stateful conversation management)
+- **Required Expertise:** API/HTTP proxy patterns, JSON transformation, distributed state management, Docker containerization, streaming response handling
+- **Complexity Level:** Medium (HTTP proxy with external state coordination and bidirectional protocol translation)
 
 ### MVP Feature Set (Phase 1)
 
@@ -604,19 +628,15 @@ From these journeys, we identify these core requirements:
 **API Translation:**
 - Dual endpoint architecture (`/v1/responses`, `/v1/chat/completions`)
 - Bidirectional translation (Response API ↔ Chat Completions API)
+- Conversation state management for Chat Completions → Response API flows
 - Pass-through mode when no translation needed
+- Streaming response support (Server-Sent Events)
 - Support for common features: text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP, image generation, reasoning summaries
-
-**State Management:**
-- Persistent conversation state storage (external state store - technology TBD in architecture phase)
-- Conversation hash → correlation ID mapping
-- TTL-based state expiration
-- Hash miss handling with documented limitations
 
 **Configuration & Operations:**
 - Docker container packaging
 - Environment variable configuration
-- **Startup configuration validation** (validate URL format, required vars, state storage connectivity)
+- **Startup configuration validation** (validate URL format, required vars, model mapping)
 - **Clear error messages on configuration failures** (fail fast at startup, not at runtime)
 - Health (`/health`) and readiness (`/ready`) endpoints
 - Structured logging with correlation ID tracking
@@ -647,7 +667,7 @@ From these journeys, we identify these core requirements:
 - Hot-reload configuration updates
 - Support for additional OpenAI endpoints
 - Performance optimization for high-volume scenarios
-- High-availability state storage configuration
+- Conversation state management (if continuity required for Chat Completions → Response API direction)
 
 **Phase 3 (Expansion) - Platform Evolution:**
 - Multi-provider support (Anthropic, Azure OpenAI, Google Vertex AI)
@@ -655,13 +675,12 @@ From these journeys, we identify these core requirements:
 - Service mesh integration (Istio, Linkerd)
 - Intelligent translation feature detection and warnings
 - Automated compatibility testing against API changes
-- Advanced state management strategies (intelligent prefix matching)
 - Configuration migration tools
 
 ### Scoping Rationale
 
-**Why State Management is MVP:**
-Real-world applications use multi-turn conversations. Without state management, the adapter can't support the primary use case (QA testing conversational apps). Conversation state is non-negotiable for validation.
+**Why State Storage is MVP:**
+Conversation state management is essential for Chat Completions → Response API translation (critical bidirectional support requirement). Response API → Chat Completions translation remains stateless (OpenAI manages state via correlation IDs). Storage architecture decisions (embedded vs external, technology selection, data model) are deferred to architecture phase, which will evaluate trade-offs between deployment complexity and scaling requirements.
 
 **Why Startup Configuration Validation is MVP:**
 The 5-minute model switching goal requires immediate feedback on configuration errors. Silent runtime failures create extended debugging sessions. Startup validation ensures DevOps gets clear error messages immediately when misconfiguration occurs.
@@ -675,10 +694,10 @@ Performance matters for cost savings validation. If translation overhead elimina
 ### Risk Mitigation Strategy
 
 **Technical Risks:**
-- **State Management Complexity:** Select proven state storage technology during architecture phase, accept hash miss limitations for MVP, document behavior clearly
 - **API Format Evolution:** Fail fast on unsupported features with clear error messages, maintain comprehensive translation documentation
 - **Performance Overhead:** Implement pass-through mode, performance test early against realistic workloads
 - **Configuration Errors:** Startup validation prevents runtime surprises, clear error messages reduce debugging time
+- **Translation Correctness:** Comprehensive field mapping documentation and contract tests ensure functional equivalence
 
 **Market Risks:**
 - **Adoption Uncertainty:** Focus on deployment simplicity, measure actual cost savings, gather feedback from QA/DevOps early adopters
@@ -687,84 +706,106 @@ Performance matters for cost savings validation. If translation overhead elimina
 **Resource Risks:**
 - **Team Size Constraints:** If limited to 1 developer, consider deferring pass-through optimization (accept translation overhead initially)
 - **Timeline Constraints:** Prioritize single translation direction first (Response→Completions OR Completions→Response), add bidirectional support in subsequent iteration
-- **Expertise Gaps:** Team should have prior experience with API proxies and state management patterns; learning curve may impact delivery
+- **Expertise Gaps:** Team should have prior experience with API proxies and JSON transformation patterns; learning curve may impact delivery
 
 ## Functional Requirements
 
 ### API Translation & Routing
 
-- FR1: System can receive requests at Response API endpoint (`/v1/responses`)
-- FR2: System can receive requests at Chat Completions API endpoint (`/v1/chat/completions`)
-- FR3: System can detect model name from incoming request payload
-- FR4: System can determine target API format based on model-to-API mapping
-- FR5: System can translate Response API requests to Chat Completions API format
-- FR6: System can translate Chat Completions API requests to Response API format
-- FR7: System can translate Chat Completions API responses to Response API format
-- FR8: System can translate Response API responses to Chat Completions API format
-- FR9: System can forward requests in pass-through mode when source format matches target format
-- FR10: System can forward requests to configured OpenAI endpoint
+- FR1: System endpoints maintain protocol compatibility with OpenAI API endpoints (drop-in replacement requiring only base URL change)
+- FR2: System can receive requests at Response API endpoint (`/v1/responses`)
+- FR3: System can receive requests at Chat Completions API endpoint (`/v1/chat/completions`)
+- FR4: System can detect model name from incoming request payload
+- FR5: System can determine target API format based on model-to-API mapping
+- FR6: System can translate Response API requests to Chat Completions API format
+- FR7: System can translate Chat Completions API requests to Response API format
+- FR8: System can translate Chat Completions API responses to Response API format
+- FR9: System can translate Response API responses to Chat Completions API format
+- FR10: System can forward requests in pass-through mode when source format matches target format (references NFR-P2 for performance)
+- FR11: System can forward requests to configured OpenAI endpoint
+- FR12: System response format matches OpenAI response format for transparent operation
+- FR13: System can reject requests exceeding maximum payload size (10MB limit)
+- FR14: System can validate JSON depth during translation mode (100 levels maximum)
 
 ### Conversation State Management
 
-- FR11: System can bridge between stateful (Response API correlation-based) and stateless (Chat Completions history-based) conversation paradigms
-- FR12: System can maintain conversation continuity when translating from Chat Completions format to Response API format
-- FR13: System can maintain conversation continuity when translating from Response API format to Chat Completions format
-- FR14: System can store conversation state in external persistent storage
-- FR15: System can retrieve conversation state for ongoing conversations
-- FR16: System can detect when incoming requests are continuations of existing conversations
-- FR17: System can handle new conversation initialization
-- FR18: System can expire conversation state after configured TTL
-- FR19: System can handle conversation matching failures with documented behavior
+- FR15: System initiates new conversation session when translating Chat Completions API requests to Response API format
+- FR16: System generates unique correlation ID (UUID format) for each new Response API session
+- FR17: System sends only current message (not full history) to Response API endpoint
+- FR18: System extracts full conversation history from Chat Completions API requests when translating to Response API
+- FR19: System persists conversation state across requests to enable multi-turn conversations for Chat Completions → Response API translation
+- FR20: System retrieves conversation state from previous requests when processing subsequent messages in same conversation
 
-> **Architecture Phase Dependency:** The mechanism for tracking and matching conversations across different API paradigms (correlation ID mapping, conversation detection algorithms, state synchronization strategies) will be determined during architecture phase. Multiple approaches exist (hash-based matching, sequence-based detection, hybrid strategies) with different trade-offs for accuracy, performance, and complexity. Architecture phase will evaluate options and select appropriate strategy based on MVP constraints.
+> **State Management Note:** The adapter maintains conversation state for Chat Completions → Response API translation flows. This enables multi-turn conversations while supporting horizontal scaling. Response API → Chat Completions translation remains stateless (OpenAI manages conversation state via correlation IDs). Storage implementation details are deferred to architecture phase.
 
 ### Configuration & Deployment
 
-- FR20: System can load configuration from environment variables at startup
-- FR21: System can validate target URL format before accepting requests
-- FR22: System can validate required environment variables are present
-- FR23: System can test connectivity to state storage at startup
+- FR21: System can load configuration from environment variables at startup
+- FR22: System can validate target URL format before accepting requests
+- FR23: System can validate required environment variables are present
 - FR24: System can fail startup with clear error messages when configuration invalid
 - FR25: System can accept model-to-API mapping configuration
-- FR26: System can be deployed as Docker container
-- FR27: System can accept configuration for conversation TTL
-- FR28: System can accept configuration for upstream timeout values
+- FR26: System can validate model names from incoming requests against configured model-to-API mapping
+- FR27: System can reject requests with unknown model names (400 Bad Request with specific model identification)
+- FR28: System can be deployed as Docker container
+- FR29: System can accept configuration for upstream timeout values
+- FR30: System can accept configuration for maximum concurrent connections (default: 1000)
 
 ### Health & Observability
 
-- FR29: System can provide health status via `/health` endpoint
-- FR30: System can provide readiness status via `/ready` endpoint
-- FR31: System can generate correlation IDs for request tracking
-- FR32: System can extract correlation IDs from incoming requests when available
-- FR33: System can log routing decisions with correlation ID
-- FR34: System can log translation mode applied (bidirectional or pass-through)
-- FR35: System can log request URIs for troubleshooting
-- FR36: System can output structured JSON logs to stdout
+- FR31: System can provide health status via `/health` endpoint (returns 200 OK when adapter process is operational)
+- FR32: System can provide readiness status via `/ready` endpoint (returns 200 OK when configuration loaded successfully, storage accessible, and adapter can accept requests)
+- FR33: System can validate storage connectivity as part of readiness check (does not probe OpenAI endpoint)
+- FR34: System can generate request IDs (UUID format) for each incoming request for duplicate detection
+- FR35: System can extract request IDs from incoming requests when provided
+- FR36: System can reject duplicate request IDs with 400 Bad Request (request IDs must be unique per request)
+- FR37: System can generate or extract conversation IDs for conversation state tracking (conversation IDs may repeat across requests in same conversation)
+- FR38: System can extract correlation IDs from incoming Response API requests for OpenAI state tracking
+- FR39: System can log routing decisions with request ID and correlation ID
+- FR40: System can log translation mode applied (translation or pass-through)
+- FR41: System can log request URIs for troubleshooting
+- FR42: System can output structured JSON logs to stdout
 
 ### Error Handling & Reliability
 
-- FR37: System can pass through OpenAI error responses unchanged (4xx, 5xx)
-- FR38: System can return 422 Unprocessable Entity for unsupported features
-- FR39: System can return 400 Bad Request for invalid request format
-- FR40: System can return 500 Internal Server Error for adapter failures
-- FR41: System can return 504 Gateway Timeout when upstream timeout exceeded
-- FR42: System can include correlation IDs in error responses
-- FR43: System can log detailed error information with stack traces for adapter failures
-- FR44: System can time out upstream requests after configured duration
+- FR43: System can pass through OpenAI error responses unchanged (4xx, 5xx) preserving headers and body
+- FR44: System can return 422 Unprocessable Entity for unsupported features
+- FR45: System can return 400 Bad Request for invalid request format (includes malformed JSON, excessive nesting depth >100 levels, oversized payloads >10MB, duplicate request IDs)
+- FR46: System can return 400 Bad Request for unknown model names with specific model identification
+- FR47: System can return 500 Internal Server Error for adapter failures (includes malformed OpenAI response handling)
+- FR48: System can return 503 Service Unavailable when maximum concurrent connections exceeded
+- FR49: System can return 503 Service Unavailable when storage unavailable
+- FR50: System can return 504 Gateway Timeout when upstream timeout exceeded
+- FR51: System can include request IDs in all error responses
+- FR52: System can include error source attribution in error responses (adapter_error vs upstream_error vs storage_error)
+- FR53: System can log detailed error information with stack traces for adapter failures
+- FR54: System can time out upstream requests after configured duration (applies to full request-response cycle including streaming response completion)
 
 ### Feature Translation Support
 
-- FR45: System can detect feature types in incoming requests (e.g., vision, function calling, structured outputs)
-- FR46: System can validate whether detected features are translatable between API formats
-- FR47: System can perform field-level translation for features with protocol equivalence
-- FR48: System can fail fast with 422 Unprocessable Entity when feature translation not supported
-- FR49: System can provide error response indicating which specific feature cannot be translated
-- FR50: System can log feature translation attempts with success/failure status
-- FR51: System can maintain feature compatibility matrix for translation decisions
+- FR55: System can detect feature types in incoming requests (vision, function calling, structured outputs, streaming, etc.)
+- FR56: System can validate whether detected features are translatable between API formats
+- FR57: System can perform field-level translation for supported features with protocol equivalence
+- FR58: System can pass through unknown fields in OpenAI responses unchanged for forward compatibility
+- FR59: System can log unknown fields detected in responses for monitoring
+- FR60: System can fail fast with 422 Unprocessable Entity when feature translation not supported
+- FR61: System can provide error response indicating which specific feature cannot be translated
+- FR62: System can log feature translation attempts with success/failure status
+- FR63: System maintains feature support for MVP scope: text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP integration, image generation, reasoning summaries, and streaming responses
+- FR64: System can translate streaming responses (SSE format) in both pass-through and translation modes
+- FR65: System can translate request/response fields for all FR63 features between Response API and Chat Completions API formats
+- FR66: System validates feature compatibility at request time and rejects unsupported feature combinations
 
-> **Architecture Phase Dependency:** The exact list of features that can be successfully translated between Response API and Chat Completions API formats will be determined during architecture phase through detailed API format research and field mapping analysis. MVP targets common conversational features (text generation, basic function calling) with graceful degradation for features where protocol incompatibilities prevent clean translation.
->
-> **MVP Target Features (Subject to Architecture Validation):** text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP, image generation, reasoning summaries. Final feature support matrix will be documented as part of architecture deliverables.
+### State Management Requirements
+
+- FR67: System can store conversation state with automatic expiration (default: 24 hours)
+- FR68: System can retrieve conversation state by conversation ID
+- FR69: System can update conversation state with new messages and responses
+- FR70: System can generate unique conversation IDs when not provided in request
+- FR71: System can validate storage connectivity at startup
+- FR72: System can handle storage unavailability with clear error responses (503 Service Unavailable)
+
+> **Architecture Phase Dependency:** Detailed field-by-field mapping for each feature in FR53 will be documented during architecture phase. MVP implementation validates feasibility of translating these features; any features discovered to have protocol incompatibilities during architecture will be explicitly documented as unsupported with clear error messages (FR51).
 
 ## Non-Functional Requirements
 
@@ -795,10 +836,22 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Success Criteria:** P95 latency remains <50ms for translation operations under load
 
 **NFR-P5: Upstream Timeout Configuration**
-- **Requirement:** Configurable timeout for OpenAI API calls (default: 30 seconds)
-- **Rationale:** Prevent indefinite hanging on OpenAI delays
-- **Measurement:** Verify 504 Gateway Timeout returned after configured duration
+- **Requirement:** Configurable timeout for OpenAI API calls covering full request-response cycle including response body reading (default: 60 seconds)
+- **Rationale:** Prevent indefinite hanging on OpenAI delays or infinite streaming responses
+- **Measurement:** Verify 504 Gateway Timeout returned after configured duration for both connection delays and slow/infinite response bodies
 - **Success Criteria:** Timeout enforced within ±100ms of configured value
+
+**NFR-P6: Request Payload Size Limit**
+- **Requirement:** Maximum request payload size enforced at 10MB
+- **Rationale:** Prevent memory exhaustion from maliciously large requests within 128MB container allocation
+- **Measurement:** Send requests exceeding 10MB, verify 400 Bad Request rejection before processing
+- **Success Criteria:** Requests >10MB rejected within 100ms, memory usage remains stable
+
+**NFR-P7: JSON Parsing Resilience**
+- **Requirement:** JSON parser validates depth in all modes - both pass-through and translation (maximum 100 nesting levels)
+- **Rationale:** Prevent parser stack overflow from deeply nested JSON bombs; consistent behavior across modes prevents crash scenarios
+- **Measurement:** Send requests with 101+ nesting levels in both pass-through and translation scenarios, verify 400 Bad Request rejection
+- **Success Criteria:** Pathological JSON structures rejected without parser crashes or memory spikes in all request modes
 
 ### Scalability
 
@@ -808,23 +861,23 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Measurement:** Monitor peak memory usage during sustained load
 - **Success Criteria:** Peak memory usage <100MB, no OOM errors under typical load
 
-**NFR-S2: State Storage Independence**
-- **Requirement:** Adapter stateless at application layer (state externalized)
-- **Rationale:** Enable horizontal scaling without session affinity concerns
-- **Measurement:** Deploy multiple adapter instances sharing same state storage, verify correctness
-- **Success Criteria:** Multi-instance deployment maintains conversation continuity
+**NFR-S2: Shared State Architecture**
+- **Requirement:** Adapter maintains conversation state to enable horizontal scaling without session affinity
+- **Rationale:** Multiple adapter instances must coordinate conversation state for same conversations
+- **Measurement:** Deploy multiple adapter instances, verify any instance can handle any request for same conversation
+- **Success Criteria:** Multi-instance deployment operates with shared state coordination
 
-**NFR-S3: Conversation State Volume**
-- **Requirement:** Support ≥10,000 concurrent conversation states (MVP baseline)
-- **Rationale:** Accommodate moderate-scale parallel testing scenarios
-- **Measurement:** Load test with 10,000 active conversation states, verify retrieval performance
-- **Success Criteria:** State retrieval latency <10ms at P95 for 10K active states
-
-**NFR-S4: Resource Efficiency**
+**NFR-S3: Resource Efficiency**
 - **Requirement:** CPU usage <5% during idle, <30% during steady-state translation load
 - **Rationale:** Minimize infrastructure costs in always-on test environments
 - **Measurement:** Monitor CPU utilization during idle and 50 req/s sustained load
 - **Success Criteria:** CPU usage within specified bounds
+
+**NFR-S4: Maximum Concurrency Limit**
+- **Requirement:** Adapter enforces maximum 1000 concurrent connections (configurable)
+- **Rationale:** Prevent resource exhaustion from connection pool starvation or coordinated request floods
+- **Measurement:** Load test with >1000 concurrent requests, verify 503 Service Unavailable for requests exceeding limit
+- **Success Criteria:** Connection limit enforced, existing requests continue processing without degradation
 
 ### Reliability
 
@@ -851,12 +904,6 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Rationale:** Prevent request interruption during deployment/restart operations
 - **Measurement:** Send SIGTERM during active request processing, verify completion
 - **Success Criteria:** In-flight requests complete successfully before process termination (<30s shutdown time)
-
-**NFR-R5: State Storage Failure Handling**
-- **Requirement:** Adapter returns 500 Internal Server Error when state storage unavailable
-- **Rationale:** Clear failure mode attribution for operational debugging
-- **Measurement:** Disconnect state storage, verify adapter error response and logging
-- **Success Criteria:** 500 error returned within 5s, structured log entry includes storage failure details
 
 ### Maintainability
 
@@ -944,6 +991,14 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Measurement:** Test deployment on Docker Compose, Docker Swarm, Kubernetes
 - **Success Criteria:** Successful deployment on all three platforms
 
+**NFR-C5: Translation Accuracy Validation**
+- **Requirement:** Translation maintains functional equivalence validated through round-trip testing (A→B→A produces equivalent result)
+- **Rationale:** Ensure "maintains functional equivalence" success criteria is measurable and testable
+- **Measurement:** Round-trip translation tests for supported features, verify semantic equivalence within acceptable tolerance
+- **Success Criteria:** 100% of supported feature round-trips maintain functional equivalence
+- **Acceptable Discrepancies:** Field ordering, timestamp format variations, null vs omitted fields, floating-point precision differences
+- **Core Invariants:** Message content, role assignments, function call arguments, tool results, structured output schemas must match exactly
+
 ### Observability
 
 **NFR-O1: Health Check Responsiveness**
@@ -953,16 +1008,22 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Success Criteria:** P99 response time <50ms regardless of adapter load
 
 **NFR-O2: Readiness Check Accuracy**
-- **Requirement:** `/ready` endpoint returns 200 only when adapter can serve requests
+- **Requirement:** `/ready` endpoint returns 200 only when adapter can serve requests (config valid, storage accessible)
 - **Rationale:** Prevent routing traffic to non-functional adapter instances
-- **Measurement:** Verify ready status during startup, state storage failures, shutdown
-- **Success Criteria:** 100% accuracy: ready=true only when fully operational
+- **Measurement:** Verify ready status during startup (config validation), storage failures (connection test), shutdown (returns not-ready)
+- **Success Criteria:** 100% accuracy: ready=true only when fully operational (does not probe OpenAI endpoint)
 
 **NFR-O3: Logging Volume Management**
 - **Requirement:** Log volume <1MB per 1,000 requests at INFO level
 - **Rationale:** Balance observability with storage costs and log processing overhead
 - **Measurement:** Generate 10,000 requests, measure total log output size
 - **Success Criteria:** Logs remain below volume threshold without losing critical information
+
+**NFR-O4: Error Log Protection (Post-MVP)**
+- **Requirement:** Error stack trace logging includes sampling or rate limiting to prevent disk exhaustion
+- **Rationale:** Prevent error amplification attacks from flooding logs with stack traces
+- **MVP Status:** Deferred to post-MVP; MVP relies on container orchestration log rotation
+- **Post-MVP Implementation:** Stack trace sampling (e.g., 1 per second per error type) or structured error aggregation
 
 **Post-MVP Observability Features:**
 - Prometheus metrics (request rates, latencies, error rates)
@@ -1034,29 +1095,24 @@ Performance matters for cost savings validation. If translation overhead elimina
 
 ### Data Management
 
-**NFR-D1: State Storage TTL Enforcement**
-- **Requirement:** Expired conversation states automatically removed from storage
-- **Rationale:** Prevent unbounded state storage growth
-- **Measurement:** Create conversations, wait for TTL expiration, verify deletion
-- **Success Criteria:** States deleted within 1 minute of TTL expiration
+**NFR-D1: Conversation State Persistence**
+- **Requirement:** Adapter stores conversation state with automatic expiration of stale data
+- **Rationale:** Enable Chat Completions → Response API translation while maintaining conversation continuity
+- **Measurement:** Audit state storage operations, verify expiration enforcement, test state retrieval across requests
+- **Success Criteria:** Conversation state persists across requests, expires after configured duration (24 hours default), accessible by any adapter instance
 
-**NFR-D2: State Storage Size Limits**
-- **Requirement:** Individual conversation state size capped at 1MB (MVP)
-- **Rationale:** Prevent memory exhaustion from pathological conversations
-- **Measurement:** Attempt to store >1MB conversation state
-- **Success Criteria:** Oversized state rejected with 400 Bad Request error
+**NFR-D2: State Storage Reliability**
+- **Requirement:** Adapter gracefully handles state storage unavailability without cascading failures
+- **Rationale:** State storage outages should not crash adapter - clear error responses enable operational response
+- **Measurement:** Simulate state storage unavailability, verify 503 Service Unavailable responses with clear error attribution
+- **Success Criteria:** State storage failures return 503 errors without adapter crashes, other requests (pass-through, Response→Chat Completions) continue functioning
 
-**NFR-D3: No Persistent User Data**
-- **Requirement:** Adapter stores only transient conversation state, no long-term user data
-- **Rationale:** Minimize data governance and privacy concerns
-- **Measurement:** Audit all data storage operations
-- **Success Criteria:** Zero long-term data persistence beyond conversation TTL
-
-**NFR-D4: Data Residency Neutrality**
-- **Requirement:** Adapter does not constrain where state data resides
-- **Rationale:** Enable deployment in data-sovereign regions
-- **Measurement:** Deploy with state storage in different regions/clouds
-- **Success Criteria:** Adapter functional regardless of state storage location
+**NFR-D3: State Storage Security**
+- **Requirement:** Conversation state data encrypted in transit to external storage
+- **Rationale:** Conversation data may contain sensitive information
+- **Measurement:** Verify TLS configuration and connection encryption settings
+- **Success Criteria:** State data encrypted in transit (TLS)
+- **MVP Scope:** TLS in transit only; at-rest encryption post-MVP (storage-dependent feature)
 
 ### Testing and Quality
 
@@ -1086,11 +1142,11 @@ Performance matters for cost savings validation. If translation overhead elimina
 
 ### Deployment and Portability
 
-**NFR-DP1: Single Container Deployment**
-- **Requirement:** Adapter packaged as single Docker image, no sidecar dependencies
-- **Rationale:** Simplify deployment for QA and DevOps teams
-- **Measurement:** Deploy container standalone, verify functionality
-- **Success Criteria:** Adapter fully functional with only external state storage dependency
+**NFR-DP1: Container Deployment**
+- **Requirement:** Adapter packaged as Docker image with conversation state management capability
+- **Rationale:** Enable standardized deployment across container orchestration platforms
+- **Measurement:** Deploy adapter container, verify conversation state persistence and retrieval
+- **Success Criteria:** Adapter functional with state management; clear error messages when storage issues occur
 
 **NFR-DP2: Multi-Architecture Support**
 - **Requirement:** Docker image built for amd64 and arm64 architectures
