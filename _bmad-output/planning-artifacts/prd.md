@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type']
+stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional']
 inputDocuments: ['product-brief-openai-adapter-2026-02-02.md']
 workflowType: 'prd'
 briefCount: 1
@@ -572,4 +572,545 @@ From these journeys, we identify these core requirements:
 - **Observability**: Health/ready endpoints for monitoring
 - **Graceful shutdown**: Complete in-flight requests before termination
 - **Error isolation**: Adapter failures don't cascade to OpenAI
+
+## Project Scoping & Phased Development
+
+### MVP Strategy & Philosophy
+
+**MVP Approach:** Problem-Solving MVP - Validate that QA/DevOps teams can achieve model flexibility and cost savings through transparent API translation without application refactoring.
+
+**Core Value Hypothesis:** Teams will adopt an infrastructure-layer proxy solution over SDK abstraction layers when it eliminates code changes and production deployment risk.
+
+**MVP Success Criteria:**
+- QA engineers successfully switch models via configuration in <5 minutes
+- Application code remains completely unchanged
+- Cost savings measurable in test environments
+- DevOps autonomy achieved (zero developer escalations)
+
+**Resource Profile:**
+- **Team Size:** 1-2 experienced developers
+- **Required Expertise:** API/HTTP proxy patterns, JSON transformation, state management, Docker containerization
+- **Complexity Level:** Medium (core infrastructure with stateful conversation management)
+
+### MVP Feature Set (Phase 1)
+
+**Core User Journeys Supported:**
+- Journey 1: QA Engineer cost-effective testing with model switching
+- Journey 2: DevOps Engineer infrastructure management autonomy
+- Journey 3: Developer transparent debugging through adapter
+
+**Must-Have Capabilities:**
+
+**API Translation:**
+- Dual endpoint architecture (`/v1/responses`, `/v1/chat/completions`)
+- Bidirectional translation (Response API ↔ Chat Completions API)
+- Pass-through mode when no translation needed
+- Support for common features: text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP, image generation, reasoning summaries
+
+**State Management:**
+- Persistent conversation state storage (external state store - technology TBD in architecture phase)
+- Conversation hash → correlation ID mapping
+- TTL-based state expiration
+- Hash miss handling with documented limitations
+
+**Configuration & Operations:**
+- Docker container packaging
+- Environment variable configuration
+- **Startup configuration validation** (validate URL format, required vars, state storage connectivity)
+- **Clear error messages on configuration failures** (fail fast at startup, not at runtime)
+- Health (`/health`) and readiness (`/ready`) endpoints
+- Structured logging with correlation ID tracking
+- Basic error handling with transparent pass-through
+
+**Documentation:**
+- Complete field-by-field translation mapping
+- Feature compatibility matrix
+- Deployment guide with examples
+- Configuration reference with validation rules
+- Quick start walkthrough
+
+**Explicitly Out of Scope for MVP:**
+- Authentication/authorization
+- API key management
+- TLS/SSL support
+- Advanced observability (metrics, tracing)
+- Hot-reload configuration
+- Production-grade performance optimization
+
+### Post-MVP Features
+
+**Phase 2 (Growth) - Production Readiness:**
+- Security hardening (authentication, authorization, API key management)
+- TLS/SSL support
+- Enhanced observability (Prometheus, Datadog, structured tracing)
+- Advanced configuration validation (deep semantic checks)
+- Hot-reload configuration updates
+- Support for additional OpenAI endpoints
+- Performance optimization for high-volume scenarios
+- High-availability state storage configuration
+
+**Phase 3 (Expansion) - Platform Evolution:**
+- Multi-provider support (Anthropic, Azure OpenAI, Google Vertex AI)
+- Advanced deployment patterns (Kubernetes operators, Helm charts)
+- Service mesh integration (Istio, Linkerd)
+- Intelligent translation feature detection and warnings
+- Automated compatibility testing against API changes
+- Advanced state management strategies (intelligent prefix matching)
+- Configuration migration tools
+
+### Scoping Rationale
+
+**Why State Management is MVP:**
+Real-world applications use multi-turn conversations. Without state management, the adapter can't support the primary use case (QA testing conversational apps). Conversation state is non-negotiable for validation.
+
+**Why Startup Configuration Validation is MVP:**
+The 5-minute model switching goal requires immediate feedback on configuration errors. Silent runtime failures create extended debugging sessions. Startup validation ensures DevOps gets clear error messages immediately when misconfiguration occurs.
+
+**Why Authentication is Post-MVP:**
+Test and staging environments typically operate on private networks without public exposure. Teams can secure the adapter at the network level initially. Authentication becomes critical when moving toward broader deployment or production use.
+
+**Why Pass-Through Mode is MVP:**
+Performance matters for cost savings validation. If translation overhead eliminates the cost benefit, the value proposition fails. Pass-through mode ensures zero overhead when translation isn't needed.
+
+### Risk Mitigation Strategy
+
+**Technical Risks:**
+- **State Management Complexity:** Select proven state storage technology during architecture phase, accept hash miss limitations for MVP, document behavior clearly
+- **API Format Evolution:** Fail fast on unsupported features with clear error messages, maintain comprehensive translation documentation
+- **Performance Overhead:** Implement pass-through mode, performance test early against realistic workloads
+- **Configuration Errors:** Startup validation prevents runtime surprises, clear error messages reduce debugging time
+
+**Market Risks:**
+- **Adoption Uncertainty:** Focus on deployment simplicity, measure actual cost savings, gather feedback from QA/DevOps early adopters
+- **SDK Competition:** Emphasize zero-refactor advantage, document production risk elimination vs abstraction layers
+
+**Resource Risks:**
+- **Team Size Constraints:** If limited to 1 developer, consider deferring pass-through optimization (accept translation overhead initially)
+- **Timeline Constraints:** Prioritize single translation direction first (Response→Completions OR Completions→Response), add bidirectional support in subsequent iteration
+- **Expertise Gaps:** Team should have prior experience with API proxies and state management patterns; learning curve may impact delivery
+
+## Functional Requirements
+
+### API Translation & Routing
+
+- FR1: System can receive requests at Response API endpoint (`/v1/responses`)
+- FR2: System can receive requests at Chat Completions API endpoint (`/v1/chat/completions`)
+- FR3: System can detect model name from incoming request payload
+- FR4: System can determine target API format based on model-to-API mapping
+- FR5: System can translate Response API requests to Chat Completions API format
+- FR6: System can translate Chat Completions API requests to Response API format
+- FR7: System can translate Chat Completions API responses to Response API format
+- FR8: System can translate Response API responses to Chat Completions API format
+- FR9: System can forward requests in pass-through mode when source format matches target format
+- FR10: System can forward requests to configured OpenAI endpoint
+
+### Conversation State Management
+
+- FR11: System can bridge between stateful (Response API correlation-based) and stateless (Chat Completions history-based) conversation paradigms
+- FR12: System can maintain conversation continuity when translating from Chat Completions format to Response API format
+- FR13: System can maintain conversation continuity when translating from Response API format to Chat Completions format
+- FR14: System can store conversation state in external persistent storage
+- FR15: System can retrieve conversation state for ongoing conversations
+- FR16: System can detect when incoming requests are continuations of existing conversations
+- FR17: System can handle new conversation initialization
+- FR18: System can expire conversation state after configured TTL
+- FR19: System can handle conversation matching failures with documented behavior
+
+> **Architecture Phase Dependency:** The mechanism for tracking and matching conversations across different API paradigms (correlation ID mapping, conversation detection algorithms, state synchronization strategies) will be determined during architecture phase. Multiple approaches exist (hash-based matching, sequence-based detection, hybrid strategies) with different trade-offs for accuracy, performance, and complexity. Architecture phase will evaluate options and select appropriate strategy based on MVP constraints.
+
+### Configuration & Deployment
+
+- FR20: System can load configuration from environment variables at startup
+- FR21: System can validate target URL format before accepting requests
+- FR22: System can validate required environment variables are present
+- FR23: System can test connectivity to state storage at startup
+- FR24: System can fail startup with clear error messages when configuration invalid
+- FR25: System can accept model-to-API mapping configuration
+- FR26: System can be deployed as Docker container
+- FR27: System can accept configuration for conversation TTL
+- FR28: System can accept configuration for upstream timeout values
+
+### Health & Observability
+
+- FR29: System can provide health status via `/health` endpoint
+- FR30: System can provide readiness status via `/ready` endpoint
+- FR31: System can generate correlation IDs for request tracking
+- FR32: System can extract correlation IDs from incoming requests when available
+- FR33: System can log routing decisions with correlation ID
+- FR34: System can log translation mode applied (bidirectional or pass-through)
+- FR35: System can log request URIs for troubleshooting
+- FR36: System can output structured JSON logs to stdout
+
+### Error Handling & Reliability
+
+- FR37: System can pass through OpenAI error responses unchanged (4xx, 5xx)
+- FR38: System can return 422 Unprocessable Entity for unsupported features
+- FR39: System can return 400 Bad Request for invalid request format
+- FR40: System can return 500 Internal Server Error for adapter failures
+- FR41: System can return 504 Gateway Timeout when upstream timeout exceeded
+- FR42: System can include correlation IDs in error responses
+- FR43: System can log detailed error information with stack traces for adapter failures
+- FR44: System can time out upstream requests after configured duration
+
+### Feature Translation Support
+
+- FR45: System can detect feature types in incoming requests (e.g., vision, function calling, structured outputs)
+- FR46: System can validate whether detected features are translatable between API formats
+- FR47: System can perform field-level translation for features with protocol equivalence
+- FR48: System can fail fast with 422 Unprocessable Entity when feature translation not supported
+- FR49: System can provide error response indicating which specific feature cannot be translated
+- FR50: System can log feature translation attempts with success/failure status
+- FR51: System can maintain feature compatibility matrix for translation decisions
+
+> **Architecture Phase Dependency:** The exact list of features that can be successfully translated between Response API and Chat Completions API formats will be determined during architecture phase through detailed API format research and field mapping analysis. MVP targets common conversational features (text generation, basic function calling) with graceful degradation for features where protocol incompatibilities prevent clean translation.
+>
+> **MVP Target Features (Subject to Architecture Validation):** text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP, image generation, reasoning summaries. Final feature support matrix will be documented as part of architecture deliverables.
+
+## Non-Functional Requirements
+
+### Performance
+
+**NFR-P1: Translation Overhead**
+- **Requirement:** JSON transformation between API formats completes in <10ms for typical requests
+- **Rationale:** Translation overhead must not negate cost savings from using cheaper models
+- **Measurement:** Measure transformation time (request deserialization → mapping logic → response serialization) isolated from network I/O
+- **Success Criteria:** 95th percentile translation time <10ms for requests up to 100KB
+
+**NFR-P2: Pass-Through Latency**
+- **Requirement:** Pass-through mode introduces <1ms additional latency beyond network overhead
+- **Rationale:** When no translation needed, adapter should be nearly transparent
+- **Measurement:** Compare direct OpenAI call latency vs adapter pass-through latency
+- **Success Criteria:** Median additional latency <1ms, 99th percentile <5ms
+
+**NFR-P3: Startup Time**
+- **Requirement:** Container startup completes in <5 seconds
+- **Rationale:** Fast deployment cycles critical for test environments
+- **Measurement:** Time from container start to `/ready` endpoint returning 200 OK
+- **Success Criteria:** Cold start <5s, warm restart <2s
+
+**NFR-P4: Request Processing Capacity**
+- **Requirement:** Handle ≥100 concurrent requests without degradation (MVP baseline)
+- **Rationale:** Support parallel test execution in QA environments
+- **Measurement:** Load test with 100 concurrent translation requests, measure P95 latency
+- **Success Criteria:** P95 latency remains <50ms for translation operations under load
+
+**NFR-P5: Upstream Timeout Configuration**
+- **Requirement:** Configurable timeout for OpenAI API calls (default: 30 seconds)
+- **Rationale:** Prevent indefinite hanging on OpenAI delays
+- **Measurement:** Verify 504 Gateway Timeout returned after configured duration
+- **Success Criteria:** Timeout enforced within ±100ms of configured value
+
+### Scalability
+
+**NFR-S1: Memory Footprint**
+- **Requirement:** Adapter container operates reliably with 128MB memory allocation
+- **Rationale:** Enable cost-efficient deployment in containerized environments
+- **Measurement:** Monitor peak memory usage during sustained load
+- **Success Criteria:** Peak memory usage <100MB, no OOM errors under typical load
+
+**NFR-S2: State Storage Independence**
+- **Requirement:** Adapter stateless at application layer (state externalized)
+- **Rationale:** Enable horizontal scaling without session affinity concerns
+- **Measurement:** Deploy multiple adapter instances sharing same state storage, verify correctness
+- **Success Criteria:** Multi-instance deployment maintains conversation continuity
+
+**NFR-S3: Conversation State Volume**
+- **Requirement:** Support ≥10,000 concurrent conversation states (MVP baseline)
+- **Rationale:** Accommodate moderate-scale parallel testing scenarios
+- **Measurement:** Load test with 10,000 active conversation states, verify retrieval performance
+- **Success Criteria:** State retrieval latency <10ms at P95 for 10K active states
+
+**NFR-S4: Resource Efficiency**
+- **Requirement:** CPU usage <5% during idle, <30% during steady-state translation load
+- **Rationale:** Minimize infrastructure costs in always-on test environments
+- **Measurement:** Monitor CPU utilization during idle and 50 req/s sustained load
+- **Success Criteria:** CPU usage within specified bounds
+
+### Reliability
+
+**NFR-R1: Availability Target**
+- **Requirement:** 99% uptime in test/staging environments (MVP target)
+- **Rationale:** QA workflows should not be frequently disrupted by adapter failures
+- **Measurement:** Track adapter downtime vs total operational time
+- **Success Criteria:** <1% planned + unplanned downtime over 30-day periods
+
+**NFR-R2: Error Transparency**
+- **Requirement:** 100% of OpenAI API errors passed through unchanged
+- **Rationale:** Applications must handle OpenAI errors exactly as if calling OpenAI directly
+- **Measurement:** Inject OpenAI errors, verify response headers and body match exactly
+- **Success Criteria:** All HTTP 4xx/5xx responses from OpenAI forwarded bit-for-bit
+
+**NFR-R3: Graceful Degradation**
+- **Requirement:** Adapter failures isolate to individual requests (no cascading failures)
+- **Rationale:** One problematic translation should not crash entire adapter service
+- **Measurement:** Inject malformed requests, verify adapter continues serving other requests
+- **Success Criteria:** Error rate for unaffected requests remains <0.1%
+
+**NFR-R4: Graceful Shutdown**
+- **Requirement:** SIGTERM signal triggers graceful shutdown completing in-flight requests
+- **Rationale:** Prevent request interruption during deployment/restart operations
+- **Measurement:** Send SIGTERM during active request processing, verify completion
+- **Success Criteria:** In-flight requests complete successfully before process termination (<30s shutdown time)
+
+**NFR-R5: State Storage Failure Handling**
+- **Requirement:** Adapter returns 500 Internal Server Error when state storage unavailable
+- **Rationale:** Clear failure mode attribution for operational debugging
+- **Measurement:** Disconnect state storage, verify adapter error response and logging
+- **Success Criteria:** 500 error returned within 5s, structured log entry includes storage failure details
+
+### Maintainability
+
+**NFR-M1: Configuration Validation**
+- **Requirement:** All configuration errors detected at startup before accepting requests
+- **Rationale:** Fail-fast prevents silent misconfigurations discovered during operations
+- **Measurement:** Inject invalid configurations, verify startup failure with clear error messages
+- **Success Criteria:** 100% of configuration errors trigger startup failure, error messages identify specific issue
+
+**NFR-M2: Correlation ID Propagation**
+- **Requirement:** Every request assigned unique correlation ID, logged in all operations
+- **Rationale:** Enable end-to-end request tracing across adapter, OpenAI, and application
+- **Measurement:** Trace single request through logs, verify correlation ID present in all entries
+- **Success Criteria:** Correlation ID propagated in 100% of log entries for request lifecycle
+
+**NFR-M3: Structured Logging**
+- **Requirement:** All logs output as structured JSON with consistent schema
+- **Rationale:** Enable log aggregation and analysis in centralized logging systems
+- **Measurement:** Verify log output parseable as JSON, contains required fields
+- **Success Criteria:** 100% of log entries valid JSON with timestamp, level, message, correlationId fields
+
+**NFR-M4: Debugging Information**
+- **Requirement:** Logs include request URIs, translation decisions, error stack traces
+- **Rationale:** Enable rapid troubleshooting without attaching debuggers
+- **Measurement:** Review logs for common debugging scenarios (translation, errors, pass-through)
+- **Success Criteria:** Sufficient information in logs to diagnose issues without code inspection
+
+**NFR-M5: Documentation Currency**
+- **Requirement:** Translation documentation updated within 1 week of code changes
+- **Rationale:** Prevent documentation drift that misleads operators and developers
+- **Measurement:** Review documentation vs code during QA cycles
+- **Success Criteria:** Zero undocumented translation behaviors or configuration options
+
+### Security (MVP Scope)
+
+**NFR-SEC1: Credential Isolation**
+- **Requirement:** OpenAI API credentials stored only in environment variables
+- **Rationale:** Prevent credential leakage through logs or configuration files
+- **Measurement:** Code review to verify no credential logging or file persistence
+- **Success Criteria:** Zero credential exposure in logs, responses, or error messages
+
+**NFR-SEC2: Network-Level Security**
+- **Requirement:** Adapter deployable on private networks without public exposure
+- **Rationale:** Enable security through network isolation for test environments
+- **Measurement:** Deploy adapter on private subnet, verify no direct internet accessibility
+- **Success Criteria:** Adapter accessible only within designated network boundaries
+
+**NFR-SEC3: Input Validation**
+- **Requirement:** Reject requests with malformed JSON or invalid field types
+- **Rationale:** Prevent injection attacks and unexpected behavior
+- **Measurement:** Fuzz test with malformed inputs, verify 400 Bad Request responses
+- **Success Criteria:** No unhandled exceptions for malformed input, all rejected with 400 errors
+
+**Post-MVP Security Features:**
+- Authentication (API key validation, OAuth integration)
+- Authorization (role-based access control)
+- TLS/SSL support (encrypted communication)
+- API key rotation mechanisms
+- Rate limiting per client
+- Audit logging for security events
+
+### Compatibility
+
+**NFR-C1: OpenAI API Contract Compliance**
+- **Requirement:** Adapter honors OpenAI API contracts for supported features
+- **Rationale:** Applications must interact with adapter identically to OpenAI API
+- **Measurement:** Contract tests validate request/response formats match OpenAI specs
+- **Success Criteria:** 100% contract test pass rate for supported feature set
+
+**NFR-C2: Model-to-API Mapping Accuracy**
+- **Requirement:** Model name detection correctly identifies which API format required
+- **Rationale:** Incorrect API selection causes request failures
+- **Measurement:** Test all supported model names, verify correct API endpoint selected
+- **Success Criteria:** 100% accuracy for documented model-to-API mappings
+
+**NFR-C3: Feature Detection Accuracy**
+- **Requirement:** Feature detection logic correctly identifies unsupported translation scenarios
+- **Rationale:** False positives (claiming support) cause data loss; false negatives (claiming failure) reduce utility
+- **Measurement:** Test boundary cases for feature detection (vision, function calling, structured outputs)
+- **Success Criteria:** Zero false positives (unsupported features accepted), <5% false negatives (supported features rejected)
+
+**NFR-C4: Container Platform Compatibility**
+- **Requirement:** Docker image runs on Docker 20.10+, compatible with Kubernetes 1.20+
+- **Rationale:** Support common container orchestration platforms
+- **Measurement:** Test deployment on Docker Compose, Docker Swarm, Kubernetes
+- **Success Criteria:** Successful deployment on all three platforms
+
+### Observability
+
+**NFR-O1: Health Check Responsiveness**
+- **Requirement:** `/health` endpoint responds in <50ms
+- **Rationale:** Enable rapid health detection for load balancers and orchestrators
+- **Measurement:** Benchmark health endpoint under no load and 100 req/s load
+- **Success Criteria:** P99 response time <50ms regardless of adapter load
+
+**NFR-O2: Readiness Check Accuracy**
+- **Requirement:** `/ready` endpoint returns 200 only when adapter can serve requests
+- **Rationale:** Prevent routing traffic to non-functional adapter instances
+- **Measurement:** Verify ready status during startup, state storage failures, shutdown
+- **Success Criteria:** 100% accuracy: ready=true only when fully operational
+
+**NFR-O3: Logging Volume Management**
+- **Requirement:** Log volume <1MB per 1,000 requests at INFO level
+- **Rationale:** Balance observability with storage costs and log processing overhead
+- **Measurement:** Generate 10,000 requests, measure total log output size
+- **Success Criteria:** Logs remain below volume threshold without losing critical information
+
+**Post-MVP Observability Features:**
+- Prometheus metrics (request rates, latencies, error rates)
+- Distributed tracing (OpenTelemetry, Jaeger integration)
+- Custom metric exports (translation type ratios, pass-through rate)
+- Performance dashboards
+- Alerting integration
+
+### Usability
+
+**NFR-U1: Configuration Simplicity**
+- **Requirement:** Minimal viable configuration requires ≤5 environment variables
+- **Rationale:** Reduce deployment friction and configuration errors
+- **Measurement:** Count required environment variables for basic deployment
+- **Success Criteria:** Basic deployment functional with 5 or fewer environment variables
+
+**NFR-U2: Error Message Clarity**
+- **Requirement:** Error messages identify specific problem and resolution guidance
+- **Rationale:** Enable self-service troubleshooting by QA and DevOps teams
+- **Measurement:** User testing with intentional misconfigurations, measure resolution time
+- **Success Criteria:** 80% of configuration errors resolved without developer assistance
+
+**NFR-U3: Zero Application Changes**
+- **Requirement:** Applications switch from OpenAI to adapter by changing base URL only
+- **Rationale:** Core value proposition is zero refactoring requirement
+- **Measurement:** Test sample applications switching base URL configuration
+- **Success Criteria:** 100% of test applications operate without code modifications
+
+**NFR-U4: Quick Start Time**
+- **Requirement:** First deployment to handling requests achievable in <10 minutes
+- **Rationale:** Rapid adoption depends on low barrier to initial success
+- **Measurement:** Time new user from documentation to first successful request
+- **Success Criteria:** Median time to first request <10 minutes following quick start guide
+
+### Operational Requirements
+
+**NFR-OP1: 12-Factor App Compliance**
+- **Requirement:** Adapter adheres to 12-factor app principles
+- **Rationale:** Enable cloud-native deployment patterns
+- **Verification:**
+  - Configuration via environment variables ✓
+  - Stateless processes (state externalized) ✓
+  - Port binding (HTTP server) ✓
+  - Logs to stdout ✓
+  - Disposability (fast startup, graceful shutdown) ✓
+- **Success Criteria:** Compliance with all relevant 12-factor principles
+
+**NFR-OP2: Resource Requests and Limits**
+- **Requirement:** Docker image includes recommended resource requests/limits
+- **Rationale:** Enable predictable performance in orchestrated environments
+- **Measurement:** Document and test recommended values
+- **Success Criteria:**
+  - Memory request: 128MB, limit: 256MB
+  - CPU request: 100m (0.1 core), limit: 500m (0.5 core)
+
+**NFR-OP3: Signal Handling**
+- **Requirement:** Adapter responds appropriately to SIGTERM and SIGINT signals
+- **Rationale:** Enable orchestrator-managed lifecycle
+- **Measurement:** Send signals during various operational states
+- **Success Criteria:**
+  - SIGTERM: Graceful shutdown (complete in-flight, reject new requests)
+  - SIGINT: Immediate shutdown (development convenience)
+
+**NFR-OP4: Logging Levels**
+- **Requirement:** Support configurable log levels (ERROR, WARN, INFO, DEBUG)
+- **Rationale:** Enable operators to adjust verbosity without redeployment
+- **Measurement:** Verify log output changes appropriately at each level
+- **Success Criteria:** Log level configurable via environment variable, changes take effect at startup
+
+### Data Management
+
+**NFR-D1: State Storage TTL Enforcement**
+- **Requirement:** Expired conversation states automatically removed from storage
+- **Rationale:** Prevent unbounded state storage growth
+- **Measurement:** Create conversations, wait for TTL expiration, verify deletion
+- **Success Criteria:** States deleted within 1 minute of TTL expiration
+
+**NFR-D2: State Storage Size Limits**
+- **Requirement:** Individual conversation state size capped at 1MB (MVP)
+- **Rationale:** Prevent memory exhaustion from pathological conversations
+- **Measurement:** Attempt to store >1MB conversation state
+- **Success Criteria:** Oversized state rejected with 400 Bad Request error
+
+**NFR-D3: No Persistent User Data**
+- **Requirement:** Adapter stores only transient conversation state, no long-term user data
+- **Rationale:** Minimize data governance and privacy concerns
+- **Measurement:** Audit all data storage operations
+- **Success Criteria:** Zero long-term data persistence beyond conversation TTL
+
+**NFR-D4: Data Residency Neutrality**
+- **Requirement:** Adapter does not constrain where state data resides
+- **Rationale:** Enable deployment in data-sovereign regions
+- **Measurement:** Deploy with state storage in different regions/clouds
+- **Success Criteria:** Adapter functional regardless of state storage location
+
+### Testing and Quality
+
+**NFR-Q1: Code Coverage**
+- **Requirement:** ≥80% code coverage for unit tests
+- **Rationale:** Reduce regression risk during feature development
+- **Measurement:** Code coverage tools measure during CI execution
+- **Success Criteria:** Coverage report shows ≥80% line coverage
+
+**NFR-Q2: Contract Test Coverage**
+- **Requirement:** 100% of supported API endpoints covered by contract tests
+- **Rationale:** Ensure adapter maintains API compatibility
+- **Measurement:** Count contract tests vs supported endpoints
+- **Success Criteria:** Every endpoint has corresponding contract test
+
+**NFR-Q3: CI Execution Time**
+- **Requirement:** Full CI test suite completes in <5 minutes
+- **Rationale:** Enable rapid iteration without sacrificing test quality
+- **Measurement:** Measure total CI pipeline duration
+- **Success Criteria:** P50 CI duration <5min, P95 <8min
+
+**NFR-Q4: Automated Testing**
+- **Requirement:** All functional requirements validated by automated tests
+- **Rationale:** Enable confident refactoring and continuous deployment
+- **Measurement:** Map functional requirements to test coverage
+- **Success Criteria:** ≥95% functional requirements have automated test coverage
+
+### Deployment and Portability
+
+**NFR-DP1: Single Container Deployment**
+- **Requirement:** Adapter packaged as single Docker image, no sidecar dependencies
+- **Rationale:** Simplify deployment for QA and DevOps teams
+- **Measurement:** Deploy container standalone, verify functionality
+- **Success Criteria:** Adapter fully functional with only external state storage dependency
+
+**NFR-DP2: Multi-Architecture Support**
+- **Requirement:** Docker image built for amd64 and arm64 architectures
+- **Rationale:** Support diverse deployment targets (x86 servers, ARM-based development)
+- **Measurement:** Build and run on both architectures
+- **Success Criteria:** Functional parity across architectures
+
+**NFR-DP3: Minimal Base Image**
+- **Requirement:** Docker image based on minimal base (Alpine, distroless, or scratch)
+- **Rationale:** Reduce image size, attack surface, and pull times
+- **Measurement:** Measure final image size
+- **Success Criteria:** Production image <50MB
+
+**NFR-DP4: Configuration Portability**
+- **Requirement:** Same Docker image deployable across dev, test, staging environments
+- **Rationale:** Eliminate environment-specific builds
+- **Measurement:** Deploy identical image across environments with different configs
+- **Success Criteria:** Single image works across all environments via config changes only
+
+---
+
+*Step 10 (Non-Functional Requirements) completed. The NFRs cover all critical aspects: performance, scalability, reliability, maintainability, security, compatibility, observability, usability, operational requirements, data management, testing/quality, and deployment/portability.*
 
