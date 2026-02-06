@@ -102,8 +102,7 @@ The application makes Response API calls as before, but now they're routed to th
 **Journey:**
 Jordan pulls the openai-adapter Docker image and reviews the environment variables needed:
 - `ADAPTER_TARGET_URL` (OpenAI's base URL)
-- `MODEL_API_MAPPING` (model-to-API format mapping configuration)
-- `OPENAI_API_KEY` (for authenticating to OpenAI - passed through to OpenAI)
+- `MODEL_API_MAPPING_FILE` (path to model-to-API format mapping JSON file)
 
 Jordan adds the adapter to the docker-compose.yml for staging:
 
@@ -112,13 +111,14 @@ openai-adapter:
   image: openai-adapter:latest
   environment:
     ADAPTER_TARGET_URL: https://api.openai.com/v1
-    MODEL_API_MAPPING: /config/model-mapping.json
-    OPENAI_API_KEY: ${OPENAI_API_KEY}
+    MODEL_API_MAPPING_FILE: /config/model-mapping.json
   volumes:
     - ./config:/config
   ports:
     - "8080:8080"
 ```
+
+Note: API keys are not configured in the adapter - they are passed through from client applications via the `Authorization` header.
 
 Jordan deploys the stack and verifies the adapter is running. When QA needs to switch models, Jordan updates the environment variables and restarts the container - no code changes, no developer escalations.
 
@@ -180,7 +180,7 @@ From these journeys, we identify these core requirements:
 **Configuration Management:**
 - Environment variable-based configuration:
   - `ADAPTER_TARGET_URL`: Target OpenAI base URL
-  - `MODEL_API_MAPPING`: Model-to-API format mapping
+  - `MODEL_API_MAPPING_FILE`: Path to model-to-API format mapping JSON file
 - Configuration loaded at container startup with validation
 - Invalid configuration fails startup with clear error messages
 - No hot-reload required for MVP
@@ -384,7 +384,7 @@ From these journeys, we identify these core requirements:
 
 **Required Configuration:**
 - `ADAPTER_TARGET_URL` - Real OpenAI API base URL (may contain different endpoint paths for Response API vs Chat Completions API)
-- `MODEL_API_MAPPING` - Model name to API type mapping (JSON format or file path, loaded at startup)
+- `MODEL_API_MAPPING_FILE` - Path to JSON file containing model name to API type mapping (loaded at startup)
 
 **Optional Configuration:**
 - `UPSTREAM_TIMEOUT` - OpenAI request timeout in seconds (default: 60)
@@ -396,13 +396,13 @@ From these journeys, we identify these core requirements:
 
 **Model-to-API Mapping Configuration:**
 - Maps model names to API types (Response API vs Chat Completions API)
-- Provided as JSON object (env variable) or JSON file path
+- Provided as JSON file whose path is specified via `MODEL_API_MAPPING_FILE` environment variable
 - Loaded and validated at container startup (#1)
 - Invalid mappings cause startup failure with specific error message (#2, #4)
 - MVP supports exact model name matching only
 - Post-MVP: Model name normalization (aliases, version resolution) (#3)
 
-**Example MODEL_API_MAPPING:**
+**Example model-mapping.json file:**
 ```json
 {
   "gpt-4": "response",

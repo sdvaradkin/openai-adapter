@@ -259,9 +259,11 @@ FR72: Epic 4 - Handle storage unavailability with clear 503 responses
 
 DevOps can run the adapter as a container with validated configuration and clear health/readiness.
 
-**FRs covered:** FR21–FR26, FR28–FR29, FR31–FR33, FR71
+**FRs covered:** FR21–FR26, FR28–FR30, FR31–FR32
 
-**Built-in quality/docs (done within epic):** deployment guide + env var reference + readiness/storage troubleshooting, plus basic tests for config validation.
+**Note:** FR33 (storage connectivity in readiness) and FR71 (storage connectivity at startup) are deferred to Epic 4 when Redis is introduced.
+
+**Built-in quality/docs (done within epic):** deployment guide + env var reference + config troubleshooting, plus basic tests for config validation.
 
 ### Epic 2: Drop-in Proxy Compatibility (routing + safety + observability)
 
@@ -283,7 +285,9 @@ Teams can translate between Response API and Chat Completions API for baseline n
 
 Stateless chat clients can work against Response API models across turns, with state persisted in shared storage and resilient error behavior.
 
-**FRs covered:** FR15–FR20, FR37, FR49, FR67–FR70, FR72
+**FRs covered:** FR15–FR20, FR33, FR37, FR49, FR67–FR72
+
+**Note:** This epic also enhances the `/ready` endpoint from Epic 1 to include storage connectivity checks (FR33, FR71).
 
 **Built-in quality/docs (done within epic):** Redis/state model docs + integration tests against real Redis.
 
