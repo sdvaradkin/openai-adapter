@@ -317,18 +317,20 @@ From these journeys, we identify these core requirements:
 
 **Feature Compatibility Matrix:**
 
-**MVP - Common Features (Full Translation Support):**
+**MVP - Supported Features (Full Translation Support):**
 - ✅ Text generation
 - ✅ Vision
 - ✅ Structured Outputs
 - ✅ Function calling
 - ✅ Web search
-- ✅ File search
-- ✅ Computer use
-- ✅ Code interpreter
-- ✅ MCP (Model Context Protocol)
-- ✅ Image generation
-- ✅ Reasoning summaries
+
+**MVP - Explicitly Deferred (422 Unsupported in MVP):**
+- ⏳ File search
+- ⏳ Computer use
+- ⏳ Code interpreter
+- ⏳ MCP (Model Context Protocol)
+- ⏳ Image generation
+- ⏳ Reasoning summaries
 
 **Post-MVP - Emerging Features:**
 - Audio support (currently "Coming soon" in Response API as of 2026)
@@ -631,7 +633,8 @@ From these journeys, we identify these core requirements:
 - Conversation state management for Chat Completions → Response API flows
 - Pass-through mode when no translation needed
 - Streaming response support (Server-Sent Events)
-- Support for common features: text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP, image generation, reasoning summaries
+- Support for MVP features: text generation, vision, structured outputs, function calling, web search
+- For deferred features in MVP: detect + fail fast with 422 Unprocessable Entity (clear error message + attribution)
 
 **Configuration & Operations:**
 - Docker container packaging
@@ -779,7 +782,7 @@ Performance matters for cost savings validation. If translation overhead elimina
 - FR51: System can include request IDs in all error responses
 - FR52: System can include error source attribution in error responses (adapter_error vs upstream_error vs storage_error)
 - FR53: System can log detailed error information with stack traces for adapter failures
-- FR54: System can time out upstream requests after configured duration (applies to full request-response cycle including streaming response completion)
+- FR54: System can time out upstream requests after configured duration (non-streaming: full request-response; streaming: time-to-first-byte + idle timeout semantics)
 
 ### Feature Translation Support
 
@@ -791,9 +794,9 @@ Performance matters for cost savings validation. If translation overhead elimina
 - FR60: System can fail fast with 422 Unprocessable Entity when feature translation not supported
 - FR61: System can provide error response indicating which specific feature cannot be translated
 - FR62: System can log feature translation attempts with success/failure status
-- FR63: System maintains feature support for MVP scope: text generation, vision, structured outputs, function calling, web search, file search, computer use, code interpreter, MCP integration, image generation, reasoning summaries, and streaming responses
+- FR63: System maintains feature support for MVP scope: text generation, vision, structured outputs, function calling, web search (all other listed capabilities explicitly deferred in MVP with 422 Unsupported)
 - FR64: System can translate streaming responses (SSE format) in both pass-through and translation modes
-- FR65: System can translate request/response fields for all FR63 features between Response API and Chat Completions API formats
+- FR65: System can translate request/response fields for all MVP-supported FR63 features between Response API and Chat Completions API formats
 - FR66: System validates feature compatibility at request time and rejects unsupported feature combinations
 
 ### State Management Requirements
@@ -836,10 +839,14 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Success Criteria:** P95 latency remains <50ms for translation operations under load
 
 **NFR-P5: Upstream Timeout Configuration**
-- **Requirement:** Configurable timeout for OpenAI API calls covering full request-response cycle including response body reading (default: 60 seconds)
-- **Rationale:** Prevent indefinite hanging on OpenAI delays or infinite streaming responses
-- **Measurement:** Verify 504 Gateway Timeout returned after configured duration for both connection delays and slow/infinite response bodies
-- **Success Criteria:** Timeout enforced within ±100ms of configured value
+- **Requirement:** Configurable upstream timeouts with streaming-aware semantics (default: 60 seconds)
+  - **Non-streaming requests:** Enforce a full request-response timeout (includes response body reading)
+  - **Streaming (SSE) requests:** Enforce time-to-first-byte (headers) timeout and an **idle timeout** (no bytes received for N seconds)
+- **Rationale:** Prevent indefinite hanging on OpenAI delays while avoiding incorrectly killing long-lived healthy streams
+- **Measurement:**
+  - Non-streaming: Verify 504 Gateway Timeout returned after configured duration for both connection delays and slow response bodies
+  - Streaming: Verify stream termination on headers timeout and on idle timeout
+- **Success Criteria:** Timeouts enforced within ±100ms of configured values
 
 **NFR-P6: Request Payload Size Limit**
 - **Requirement:** Maximum request payload size enforced at 10MB
@@ -1034,12 +1041,6 @@ Performance matters for cost savings validation. If translation overhead elimina
 
 ### Usability
 
-**NFR-U1: Configuration Simplicity**
-- **Requirement:** Minimal viable configuration requires ≤5 environment variables
-- **Rationale:** Reduce deployment friction and configuration errors
-- **Measurement:** Count required environment variables for basic deployment
-- **Success Criteria:** Basic deployment functional with 5 or fewer environment variables
-
 **NFR-U2: Error Message Clarity**
 - **Requirement:** Error messages identify specific problem and resolution guidance
 - **Rationale:** Enable self-service troubleshooting by QA and DevOps teams
@@ -1158,7 +1159,7 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Requirement:** Docker image based on minimal base (Alpine, distroless, or scratch)
 - **Rationale:** Reduce image size, attack surface, and pull times
 - **Measurement:** Measure final image size
-- **Success Criteria:** Production image <50MB
+- **Success Criteria:** Production image <150MB
 
 **NFR-DP4: Configuration Portability**
 - **Requirement:** Same Docker image deployable across dev, test, staging environments
