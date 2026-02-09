@@ -14,6 +14,8 @@ The adapter operates in two routing modes:
 
 This epic focuses on the operational proxy layer: routing, safety, logging, and error handling. The actual translation logic is deferred to Epic 3.
 
+**Pipeline Architecture:** See [architecture.md - Request/Response Pipeline Architecture](../architecture.md#requestresponse-pipeline-architecture) for the complete flow diagram showing how routing, validation, error handling, and logging integrate together.
+
 ## Functional Requirements Covered
 
 - **FR1-FR5:** Protocol compatibility and model-based routing

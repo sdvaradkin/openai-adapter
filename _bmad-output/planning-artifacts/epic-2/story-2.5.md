@@ -2,6 +2,8 @@
 
 **Epic:** [Epic 2: Drop-in Proxy Compatibility](epic-2.md)
 
+**Pipeline Context:** This story implements **Observability Integration** across all pipeline stages from the [Request/Response Pipeline Architecture](../architecture.md#requestresponse-pipeline-architecture).
+
 ## User Story
 
 **As a** DevOps engineer,  

@@ -221,6 +221,253 @@ Define code organization by **logical responsibilities**, not a prescribed folde
 - Hot-reload configuration support
 - Performance optimization beyond MVP targets
 
+---
+
+## Request/Response Pipeline Architecture
+
+### Overview
+
+This section describes the complete request/response flow through the adapter, showing how routing, translation, validation, and error handling components integrate together.
+
+### High-Level Pipeline Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          Client Application                                  │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │ HTTP Request
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         openai-adapter (Fastify)                            │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ 1. REQUEST INGESTION                                                 │  │
+│  │    • Generate request ID (UUID)                                      │  │
+│  │    • Log request received                                            │  │
+│  │    • Start performance timer                                         │  │
+│  └─────────────────────────────────┬───────────────────────────────────┘  │
+│                                    ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ 2. VALIDATION LAYER                                                  │  │
+│  │    • Fastify schema validation (structure, types)                    │  │
+│  │    • Payload size check (10MB max)                                   │  │
+│  │    • JSON depth validation (100 levels max)                          │  │
+│  │    • Model name validation (against mapping config)                  │  │
+│  │    • Duplicate request ID check                                      │  │
+│  │    └─ [FAIL] → 400 Bad Request + error attribution                   │  │
+│  └─────────────────────────────────┬───────────────────────────────────┘  │
+│                                    ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ 3. ROUTING DECISION                                                  │  │
+│  │    • Extract model from request                                      │  │
+│  │    • Lookup target API (Response vs Chat) from config                │  │
+│  │    • Determine incoming format (endpoint analysis)                   │  │
+│  │    • Decision: Pass-through OR Translation?                          │  │
+│  │      - Same format → Pass-through                                    │  │
+│  │      - Different format → Translation required                       │  │
+│  │    • Log routing decision                                            │  │
+│  └─────────────────────────────────┬───────────────────────────────────┘  │
+│                                    ▼                                        │
+│            ┌───────────────────────┴────────────────────┐                  │
+│            │                                             │                  │
+│            ▼                                             ▼                  │
+│  ┌──────────────────────┐                  ┌──────────────────────────┐   │
+│  │ 4a. PASS-THROUGH     │                  │ 4b. TRANSLATION PATH     │   │
+│  │                      │                  │                          │   │
+│  │ • Copy request       │                  │ • Invoke translator      │   │
+│  │   unchanged          │                  │   (ResponseToChat OR     │   │
+│  │ • Add headers        │                  │    ChatToResponse)       │   │
+│  │ • Forward to OpenAI  │                  │ • Transform fields       │   │
+│  │                      │                  │ • Handle unknown fields  │   │
+│  │ [<1ms overhead]      │                  │ • Log translation        │   │
+│  │                      │                  │ • Forward transformed    │   │
+│  │                      │                  │   request to OpenAI      │   │
+│  │                      │                  │                          │   │
+│  │                      │                  │ [<10ms overhead]         │   │
+│  └──────────┬───────────┘                  └────────────┬─────────────┘   │
+│             │                                            │                  │
+│             └────────────────────┬───────────────────────┘                  │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ 5. UPSTREAM REQUEST (undici HTTP client)                            │  │
+│  │    • Send to OpenAI API endpoint                                    │  │
+│  │    • Apply timeout (headers + idle for streaming)                   │  │
+│  │    • Handle connection errors                                       │  │
+│  │    └─ [FAIL] → 503/504 + error attribution                          │  │
+│  └─────────────────────────────────┬───────────────────────────────────┘  │
+│                                    ▼                                        │
+└────────────────────────────────────┼────────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼────────────────────────────────────────┐
+│                              OpenAI API                                     │
+│  • Processes request (Response API or Chat Completions API)                │
+│  • Returns response or error                                               │
+└────────────────────────────────────┬────────────────────────────────────────┘
+                                     │ HTTP Response
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         openai-adapter (Fastify)                            │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ 6. RESPONSE RECEIVED                                                 │  │
+│  │    • Detect response type (success vs error)                         │  │
+│  │    • Log response status                                             │  │
+│  └─────────────────────────────────┬───────────────────────────────────┘  │
+│                                    ▼                                        │
+│            ┌───────────────────────┴────────────────────┐                  │
+│            │                                             │                  │
+│            ▼                                             ▼                  │
+│  ┌──────────────────────┐                  ┌──────────────────────────┐   │
+│  │ 7a. UPSTREAM ERROR   │                  │ 7b. SUCCESS RESPONSE     │   │
+│  │                      │                  │                          │   │
+│  │ • 4xx/5xx from       │                  │ Decision: Was request    │   │
+│  │   OpenAI             │                  │ translated?              │   │
+│  │ • Pass through       │                  │                          │   │
+│  │   UNCHANGED          │                  │ ┌─────────────────────┐  │   │
+│  │ • Preserve headers,  │                  │ │ Pass-through:       │  │   │
+│  │   body, status       │                  │ │ • Return unchanged  │  │   │
+│  │ • Add request ID     │                  │ └─────────────────────┘  │   │
+│  │                      │                  │                          │   │
+│  │ [100% transparency]  │                  │ ┌─────────────────────┐  │   │
+│  │                      │                  │ │ Translation:        │  │   │
+│  │                      │                  │ │ • Invoke reverse    │  │   │
+│  │                      │                  │ │   translator        │  │   │
+│  │                      │                  │ │ • Transform fields  │  │   │
+│  │                      │                  │ │ • Handle unknown    │  │   │
+│  │                      │                  │ │ • Log translation   │  │   │
+│  │                      │                  │ └─────────────────────┘  │   │
+│  └──────────┬───────────┘                  └────────────┬─────────────┘   │
+│             │                                            │                  │
+│             └────────────────────┬───────────────────────┘                  │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ 8. RESPONSE FINALIZATION                                             │  │
+│  │    • Add adapter headers (request ID, etc.)                          │  │
+│  │    • Measure total request duration                                  │  │
+│  │    • Log request completion                                          │  │
+│  │    • Return to client                                                │  │
+│  └─────────────────────────────────┬───────────────────────────────────┘  │
+│                                    ▼                                        │
+└────────────────────────────────────┼────────────────────────────────────────┘
+                                     │ HTTP Response
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          Client Application                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Translation Integration Points
+
+**Key Integration Decisions:**
+
+1. **Translation Decision Point** (Step 3):
+   - `RouteHandler` determines if translation is needed
+   - Decision based on: incoming format (endpoint) vs target API (model config)
+   - Passes control to either pass-through or translation handler
+
+2. **Request Translation Invocation** (Step 4b):
+   ```typescript
+   // Pseudo-code showing integration
+   if (routingDecision.requiresTranslation) {
+     const translator = getTranslator(routingDecision.direction);
+     const translatedRequest = translator.translateRequest(incomingRequest);
+     const openaiResponse = await httpClient.send(translatedRequest);
+     // ... continue to response translation
+   }
+   ```
+
+3. **Response Translation Invocation** (Step 7b):
+   ```typescript
+   // Pseudo-code showing integration
+   if (routingDecision.requiresTranslation) {
+     const translator = getTranslator(routingDecision.direction);
+     const translatedResponse = translator.translateResponse(openaiResponse);
+     return translatedResponse;
+   }
+   ```
+
+4. **Error Handling During Translation**:
+   - Translation errors → 500 Internal Server Error with error attribution
+   - Malformed OpenAI response → 500 with specific error message
+   - Unknown field detection → logged but doesn't fail request
+
+### Component Responsibilities
+
+| Component | Responsibility | Error Handling |
+|-----------|---------------|----------------|
+| **Request Ingestion** | Generate request ID, start timer | N/A |
+| **Validation Layer** | Structure, size, depth, model checks | 400 Bad Request |
+| **Routing Decision** | Determine pass-through vs translation | N/A (logged) |
+| **Translation Engines** | Field-by-field transformation | 500 Internal Error |
+| **HTTP Client** | OpenAI communication | 503/504 timeouts |
+| **Error Pass-through** | Transparent upstream errors | Preserve original |
+| **Response Finalization** | Add headers, log, measure | N/A |
+
+### Performance Budget by Stage
+
+| Stage | Target Latency | Notes |
+|-------|---------------|-------|
+| Validation Layer | <1ms | Fast rejection before processing |
+| Routing Decision | <0.5ms | Config lookup only |
+| Pass-through Mode | <1ms total overhead | Near-zero processing |
+| Request Translation | <10ms | Field transformation |
+| Upstream Request | Variable | Depends on OpenAI API |
+| Response Translation | <10ms | Field transformation |
+| Total (Translation) | <21ms overhead | 1ms validation + 10ms req + 10ms resp |
+
+### Streaming Flow Variations
+
+For streaming requests (`stream: true`):
+
+1. **Pass-through streaming**: Direct pipe from OpenAI → client (minimal overhead)
+2. **Translation streaming**: Event-by-event buffering + transformation
+   - Parse SSE events as they arrive
+   - Translate each event
+   - Re-emit translated SSE to client
+
+**Streaming-specific considerations:**
+- Headers timeout for time-to-first-byte
+- Idle timeout (no bytes received) vs hard timeout
+- Error event emission during stream (adapter errors only when safe)
+
+### Error Scenarios and Attribution
+
+| Scenario | HTTP Status | Error Source | Response Body |
+|----------|------------|--------------|---------------|
+| Invalid JSON | 400 | `adapter_error` | Specific parse error |
+| Payload too large | 400 | `adapter_error` | Size limit message |
+| JSON too deep | 400 | `adapter_error` | Depth limit message |
+| Unknown model | 400 | `adapter_error` | Model not found |
+| Translation failure | 500 | `adapter_error` | Translation error details |
+| OpenAI 4xx | 4xx | `upstream_error` | Pass-through unchanged |
+| OpenAI 5xx | 5xx | `upstream_error` | Pass-through unchanged |
+| Connection failure | 503 | `adapter_error` | Service unavailable |
+| Upstream timeout | 504 | `adapter_error` | Gateway timeout |
+
+All adapter-generated errors include `request_id` for tracing.
+
+### Observability Integration
+
+**Logged at Each Stage:**
+```json
+{
+  "request_id": "uuid",
+  "stage": "validation|routing|translation|upstream|response",
+  "action": "started|completed|failed",
+  "duration_ms": 5.2,
+  "details": {
+    "model": "gpt-4o",
+    "translation_required": true,
+    "translation_direction": "chat_to_response",
+    "unknown_fields_detected": ["new_field"]
+  }
+}
+```
+
+**Affects:** FR1-FR14 (routing), FR6-FR9 (translation), FR34-FR53 (observability and errors), NFR-P1, NFR-P2 (performance)
+
+---
+
 ### Translation Engine
 
 **Decision:** Separate bidirectional translator classes

@@ -2,6 +2,8 @@
 
 **Epic:** [Epic 2: Drop-in Proxy Compatibility](epic-2.md)
 
+**Pipeline Context:** This story implements **Stage 3: Routing Decision** and **Stage 4a: Pass-Through Path** from the [Request/Response Pipeline Architecture](../architecture.md#requestresponse-pipeline-architecture).
+
 ## User Story
 
 **As a** platform engineer,  

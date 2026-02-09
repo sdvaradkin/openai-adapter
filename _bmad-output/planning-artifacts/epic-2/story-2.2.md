@@ -2,6 +2,8 @@
 
 **Epic:** [Epic 2: Drop-in Proxy Compatibility](epic-2.md)
 
+**Pipeline Context:** This story implements **Stage 2: Validation Layer** from the [Request/Response Pipeline Architecture](../architecture.md#requestresponse-pipeline-architecture).
+
 ## User Story
 
 **As a** platform engineer,  

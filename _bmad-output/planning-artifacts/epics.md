@@ -1,40 +1,41 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories-epic-1']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories-epic-1', 'step-03-create-stories-epic-2', 'step-03-create-stories-epic-3', 'step-03-create-stories-epic-4', 'step-03-create-stories-epic-5', 'step-03-create-stories-epic-6']
 inputDocuments:
   - product-brief-openai-adapter-2026-02-02.md
   - prd.md
   - architecture.md
+  - translation-mapping-reference.md
 epicsWithStories:
   - epic-1: COMPLETE (4 stories in epic-1/ folder)
-pendingEpics:
-  - epic-2: NOT STARTED
-  - epic-3: NOT STARTED
-  - epic-4: NOT STARTED
-  - epic-5: NOT STARTED
-  - epic-6: NOT STARTED
+  - epic-2: COMPLETE (5 stories in epic-2/ folder)
+  - epic-3: COMPLETE (5 stories in epic-3/ folder)
+  - epic-4: COMPLETE (3 stories in epic-4/ folder)
+  - epic-5: COMPLETE (3 stories in epic-5/ folder)
+  - epic-6: COMPLETE (6 stories in epic-6/ folder)
+pendingEpics: []
 ---
 
 # openai-adapter - Epic Breakdown
 
-## Document Map
+**Status:** ALL EPICS COMPLETE - 6 Epics, 26 Stories Ready for Implementation
 
-**Status:** Epic 1 COMPLETE with stories, Epics 2-6 defined but stories NOT YET CREATED
+## Document Map
 
 **Document Structure:**
 - This file (epics.md): Requirements inventory, FR coverage map, and epic summaries
 - Separate epic directories: Detailed epic descriptions and user stories
 
 **Completed Sections:**
-- ✅ Requirements Inventory (Lines 48-215)
+- ✅ Requirements Inventory
   - Functional Requirements: 72 FRs
   - Non-Functional Requirements: 50 NFRs
   - Additional Requirements
-- ✅ FR Coverage Map (Lines 219-290)
-- ✅ Epic List (Lines 292-346)
+- ✅ FR Coverage Map
+- ✅ Epic List (6 Epics)
   - Epic 1: Deploy & Operate (FR21-FR26, FR28-FR32)
   - Epic 2: Drop-in Proxy Compatibility (FR1-FR5, FR10-FR14, FR27, FR34-FR53)
   - Epic 3: Core Bidirectional Translation (FR6-FR9, FR57, FR58-FR59)
-  - Epic 4: Multi-turn Conversations with State (FR15-FR20, FR33, FR37, FR49, FR67-FR72)
+  - Epic 4: Response API → Chat Multi-turn with State (FR15-FR20, FR33, FR37, FR49, FR67-FR72)
   - Epic 5: Streaming Support (FR50, FR54, FR64)
   - Epic 6: MVP Feature Set (FR44, FR55-FR56, FR60-FR63, FR65-FR66)
 
@@ -45,15 +46,40 @@ pendingEpics:
   - [epic-1/story-1.2.md](epic-1/story-1.2.md) - Environment Configuration & Validation
   - [epic-1/story-1.3.md](epic-1/story-1.3.md) - Production Health and Readiness Endpoints
   - [epic-1/story-1.4.md](epic-1/story-1.4.md) - Timeout and Concurrency Configuration
+- ✅ **epic-2/** Drop-in Proxy Compatibility - **COMPLETE (5 stories)**
+  - [epic-2/epic-2.md](epic-2/epic-2.md) - Epic description
+  - [epic-2/story-2.1.md](epic-2/story-2.1.md) - Request Routing & Pass-Through Mode
+  - [epic-2/story-2.2.md](epic-2/story-2.2.md) - Safety Validation & Request Guards
+  - [epic-2/story-2.3.md](epic-2/story-2.3.md) - Error Handling & Transparent Proxying
+  - [epic-2/story-2.4.md](epic-2/story-2.4.md) - Structured Logging & Observability
+  - [epic-2/story-2.5.md](epic-2/story-2.5.md) - OpenAI Endpoint Compatibility
+- ✅ **epic-3/** Core Bidirectional Translation - **COMPLETE (5 stories)**
+  - [epic-3/epic-3.md](epic-3/epic-3.md) - Epic description
+  - [epic-3/story-3.1.md](epic-3/story-3.1.md) - Chat→Response Request Translation + Foundation
+  - [epic-3/story-3.2.md](epic-3/story-3.2.md) - Response→Chat Response Translation
+  - [epic-3/story-3.3.md](epic-3/story-3.3.md) - Response→Chat Request Translation
+  - [epic-3/story-3.4.md](epic-3/story-3.4.md) - Chat→Response Response Translation
+  - [epic-3/story-3.5.md](epic-3/story-3.5.md) - Translation Pipeline Integration & Orchestration
+- ✅ **epic-4/** Multi-turn Conversations with State - **COMPLETE (3 stories)**
+  - [epic-4/epic-4.md](epic-4/epic-4.md) - Epic description
+  - [epic-4/story-4.1.md](epic-4/story-4.1.md) - Redis Integration & Readiness Enhancement
+  - [epic-4/story-4.2.md](epic-4/story-4.2.md) - Conversation State Storage with Error Handling
+  - [epic-4/story-4.3.md](epic-4/story-4.3.md) - Response→Chat Multi-turn Translation with State Retrieval
+- ✅ **epic-5/** Streaming Support - **COMPLETE (3 stories)**
+  - [epic-5/epic-5.md](epic-5/epic-5.md) - Epic description
+  - [epic-5/story-5.1.md](epic-5/story-5.1.md) - Pass-through Streaming Pipeline
+  - [epic-5/story-5.2.md](epic-5/story-5.2.md) - Bidirectional Streaming Translation
+  - [epic-5/story-5.3.md](epic-5/story-5.3.md) - Streaming Timeout Configuration & 504 Handling
+- ✅ **epic-6/** MVP Feature Set + Compatibility Matrix - **COMPLETE (6 stories)**
+  - [epic-6/epic-6.md](epic-6/epic-6.md) - Epic description
+  - [epic-6/story-6.1.md](epic-6/story-6.1.md) - Feature Detection & Unsupported Feature Rejection
+  - [epic-6/story-6.2.md](epic-6/story-6.2.md) - Vision Support Translation
+  - [epic-6/story-6.3.md](epic-6/story-6.3.md) - Structured Outputs Translation
+  - [epic-6/story-6.4.md](epic-6/story-6.4.md) - Function Calling Translation
+  - [epic-6/story-6.5.md](epic-6/story-6.5.md) - Web Search Translation
+  - [epic-6/story-6.6.md](epic-6/story-6.6.md) - Feature Compatibility Matrix & Documentation
 
-**Pending Epic Folders:**
-- ❌ **epic-2/** Drop-in Proxy Compatibility (NOT STARTED)
-- ❌ **epic-3/** Core Bidirectional Translation (NOT STARTED)
-- ❌ **epic-4/** Multi-turn Conversations with State (NOT STARTED)
-- ❌ **epic-5/** Streaming Support (NOT STARTED)
-- ❌ **epic-6/** MVP Feature Set (NOT STARTED)
-
-**Next Step:** Run step-03-create-stories for Epic 2-6 OR start implementing Epic 1 stories
+**Next Step:** All epics complete! Review stories and begin implementation
 
 ---
 
@@ -291,13 +317,13 @@ Teams can translate between Response API and Chat Completions API for baseline n
 
 **Built-in quality/docs (done within epic):** mapping notes + contract tests for baseline translation flows.
 
-### Epic 4: Multi-turn Conversations (Chat → Response) with Shared State
+### Epic 4: Multi-turn Conversations (Response → Chat) with Shared State
 
-Stateless chat clients can work against Response API models across turns, with state persisted in shared storage and resilient error behavior.
+**Stateful Response API clients can work against Chat Completions models across turns**, with conversation history maintained in shared storage.
 
 **FRs covered:** FR15–FR20, FR33, FR37, FR49, FR67–FR72
 
-**Note:** This epic also enhances the `/ready` endpoint from Epic 1 to include storage connectivity checks (FR33, FR71).
+**Note:** This epic focuses on **Response API → Chat Completions** translation. Chat Completions → Response API is stateless (client provides full messages array) and is covered in Epic 3.
 
 **Built-in quality/docs (done within epic):** Redis/state model docs + integration tests against real Redis.
 
