@@ -14,7 +14,8 @@ persona:
   principles: []
 
 # Add custom critical actions (appended after standard config loading)
-critical_actions: []
+critical_actions:
+  - "After completing a story, always prompt user before committing and pushing changes"
 
 # Add persistent memories for the agent
 memories: []
@@ -25,7 +26,10 @@ memories: []
 
 # Add custom menu items (appended to base menu)
 # Don't include * prefix or help/exit - auto-injected
-menu: []
+menu:
+  - trigger: commit-push
+    action: "#commit-prompt"
+    description: Commit and push changes with confirmation
 # Example:
 # menu:
 #   - trigger: my-workflow
@@ -33,7 +37,19 @@ menu: []
 #     description: My custom workflow
 
 # Add custom prompts (for action="#id" handlers)
-prompts: []
+prompts:
+  - id: commit-prompt
+    content: |
+      Before committing and pushing changes, I need your confirmation.
+
+      **Current git status:**
+      [Run git status to show changes]
+
+      **Do you want to commit and push these changes?** (y/n)
+      - If yes, provide a commit message
+      - If no, changes will remain uncommitted
+
+      Your choice:
 # Example:
 # prompts:
 # - id: my-prompt
