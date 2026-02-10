@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { execSync } from 'child_process';
 
-describe('Docker Image Integration Tests', () => {
+describe('Regression Tests - Docker Image Validation', () => {
   const imageName = process.env.DOCKER_IMAGE || 'openai-adapter:test';
 
   it('configures non-root user', () => {

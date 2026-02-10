@@ -60,8 +60,13 @@ jobs:
       - name: Build Docker image for integration tests
         run: docker build -t openai-adapter:${{ github.sha }} .
 
-      - name: Run integration tests
-        run: npm run test:integration
+      - name: Run smoke tests
+        run: npm run test:smoke
+        env:
+          DOCKER_IMAGE: openai-adapter:${{ github.sha }}
+
+      - name: Run regression tests
+        run: npm run test:regression
         env:
           DOCKER_IMAGE: openai-adapter:${{ github.sha }}
 

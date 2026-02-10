@@ -14,13 +14,14 @@ Minimal Node.js/TypeScript service scaffold for the OpenAI Adapter.
 - `npm run dev` — run dev server with watch
 - `npm start` — run compiled server (`node dist/index.js`)
 - `npm test` — run unit tests (Vitest)
-- `npm run test:integration` — run Docker integration tests
+- `npm run test:smoke` — run smoke tests (Docker container health checks)
+- `npm run test:regression` — run regression tests (Docker image validation)
+- `npm run test:integration` — run all integration tests (smoke + regression)
 - `npm run test:integration:local` — build Docker image + run integration tests
 - `npm run test:ci` — run full CI pipeline (lint, test, build, docker, integration)
 - `npm run lint` — lint `src/` and `tests/`
 - `npm run format` — format with Prettier
 - `npm run docker:build` — build Docker image as `openai-adapter:test`
-- `npm run docker:health` — test Docker container health endpoint
 
 ## Running locally
 
@@ -71,8 +72,17 @@ npm test
 ### Integration Tests (requires Docker)
 ```bash
 # Build image + run integration tests
+npm run test:integraall integration tests (smoke + regression)
 npm run test:integration:local
 
+# Or run individually:
+docker build -t openai-adapter:test .
+
+# Smoke tests (container health checks with testcontainers)
+npm run test:smoke
+
+# Regression tests (image metadata validation)
+npm run test:regression
 # Or manually:
 docker build -t openai-adapter:test .
 npm run test:integration
@@ -80,8 +90,8 @@ npm run test:integration
 
 ### Full CI Pipeline Locally
 ```bash
-# Cross-platform npm script (works on Windows, Mac, Linux)
-npm run test:ci
+# CRun smoke tests (container health)
+6. Run regression tests (image validation)
 ```
 
 This runs the complete CI flow:
