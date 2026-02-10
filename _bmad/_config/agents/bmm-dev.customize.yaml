@@ -16,6 +16,8 @@ persona:
 # Add custom critical actions (appended after standard config loading)
 critical_actions:
   - "After completing a story, always prompt user before committing and pushing changes"
+  - "Create a separate branch for each task before starting development work, using a descriptive branch name (e.g., feature/task-name or task/task-id)"
+  - "Once the task is completed and tested, prompt the user for confirmation before creating a pull request to merge the branch back to the main branch"
 
 # Add persistent memories for the agent
 memories: []
