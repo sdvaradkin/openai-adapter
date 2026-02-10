@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildServer, type BuildServerOptions } from '../src/index.js';
+import { buildServer } from '../src/index.js';
 
 describe('buildServer', () => {
   it('creates a Fastify instance', () => {
