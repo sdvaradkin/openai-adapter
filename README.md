@@ -13,9 +13,14 @@ Minimal Node.js/TypeScript service scaffold for the OpenAI Adapter.
 - `npm run build` — compile TypeScript to `dist/`
 - `npm run dev` — run dev server with watch
 - `npm start` — run compiled server (`node dist/index.js`)
-- `npm test` — run tests (Vitest)
+- `npm test` — run unit tests (Vitest)
+- `npm run test:integration` — run Docker integration tests
+- `npm run test:integration:local` — build Docker image + run integration tests
+- `npm run test:ci` — run full CI pipeline (lint, test, build, docker)
 - `npm run lint` — lint `src/` and `tests/`
 - `npm run format` — format with Prettier
+- `npm run docker:build` — build Docker image as `openai-adapter:test`
+- `npm run docker:test` — test Docker container health endpoint
 
 ## Running locally
 
@@ -54,4 +59,33 @@ Health:
 
 ```bash
 curl -f http://localhost:3000/health
+```
+
+## Testing
+
+### Unit Tests
+```bash
+npm test
+```
+
+### Integration Tests (requires Docker)
+```bash
+# Build image + run integration tests
+npm run test:integration:local
+
+# Or manually:
+docker build -t openai-adapter:test .
+npm run test:integration
+```
+
+### Full CI Pipeline Locally
+```bash
+# PowerShell (Windows)
+.\scripts\test-ci-local.ps1
+
+# Bash (Linux/Mac)
+./scripts/test-ci-local.sh
+
+# Or via npm
+npm run test:ci
 ```
