@@ -15,12 +15,12 @@
     "test:integration:local": "npm run docker:build && npm run test:integration",
     "test:all": "vitest run",
     "test:watch": "vitest",
-    "test:ci": "npm run lint && npm test && npm run build && npm run docker:build && npm run docker:test && npm run test:integration",
+    "test:ci": "npm run lint && npm test && npm run build && npm run docker:build && npm run docker:health && npm run test:integration",
     "lint": "eslint src tests",
     "format": "prettier --write .",
     "docker:build": "docker build -t openai-adapter:test .",
-    "docker:test": "docker run -d -p 3000:3000 --name test-container openai-adapter:test && timeout /t 5 /nobreak >nul && curl -f http://localhost:3000/health && docker rm -f test-container",
-    "docker:clean": "docker rm -f test-container 2>nul || true"
+    "docker:health": "node scripts/docker-health-check.cjs",
+    "docker:clean": "docker rm -f test-container 2>nul || docker rm -f test-container 2>/dev/null || true"
   },
   "dependencies": {
     "fastify": "^4.28.1",
