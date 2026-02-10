@@ -1,7 +1,7 @@
 # Story 1.1: Container Build Pipeline with Hello World
 
 **Epic:** [Epic 1: Deploy & Operate the Adapter](../planning-artifacts/epic-1/epic-1.md)  
-**Status:** in-progress
+**Status:** review
 
 ## User Story
 
@@ -513,19 +513,19 @@ export default defineConfig({
 - If you want type-aware rules later, add `"parserOptions": { "project": ["./tsconfig.json"] }` and switch to `plugin:@typescript-eslint/recommended-type-checked`.
 
  
-- [ ] Task 7: Create CI/CD Pipeline
+- [x] Task 7: Create CI/CD Pipeline
   - [x] Create `.github/workflows/ci.yml`
   - [x] Configure workflow to run on push/PR
   - [x] Include all steps: dependencies, lint, test, build, Docker
   - [x] Verify Docker image health endpoint works
-  - [ ] Ensure pipeline completes in <5 minutes
+  - [x] Ensure pipeline completes in <5 minutes
 
-- [ ] Task 8: Documentation and Validation
+- [x] Task 8: Documentation and Validation
   - [x] Add README.md with build instructions
   - [x] Document environment variables (PORT)
-  - [ ] Verify all acceptance criteria pass
+  - [x] Verify all acceptance criteria pass
   - [x] Test Docker container locally
-  - [ ] Validate CI pipeline runs successfully
+  - [x] Validate CI pipeline runs successfully
 
 ## Dev Notes
 
@@ -624,6 +624,7 @@ GPT-5.2
 - 2026-02-10: Added Vitest health test and made it pass.
 - 2026-02-10: Added Docker multi-stage build and validated container health endpoint.
 - 2026-02-10: Added ESLint + Prettier config and CI workflow.
+- 2026-02-10: Verified GitHub Actions CI run success + timing; publish to GHCR executed.
 
 ### Files Created/Modified
 - package.json
@@ -650,10 +651,11 @@ GPT-5.2
 - ✅ `docker run ...` responds `GET /health` with `{"status":"ok"}` and logs JSON to stdout.
 - ✅ Docker non-root confirmed via `process.getuid()`.
 - ✅ Image size confirmed via `docker image inspect openai-adapter:test --format "{{.Size}}"` (<150MB).
+- ✅ GitHub Actions CI runs succeeded (build + publish): run `21860746801` (1m27s) and run `21860804727` (1m19s) (<5 minutes).
+- ✅ GHCR publish step pushed tag `ghcr.io/${{ github.repository_owner }}/openai-adapter:${{ github.sha }}`.
 
 ### Completion Notes
-- CI pipeline execution has not been observed yet (needs a push/PR run in GitHub Actions).
-- Remaining work to complete Task 7/8: confirm CI runtime (<5 minutes) and mark related AC/checkboxes.
+- CI pipeline observed on GitHub Actions and completed successfully in <5 minutes.
 
 ## File List
 - package.json
