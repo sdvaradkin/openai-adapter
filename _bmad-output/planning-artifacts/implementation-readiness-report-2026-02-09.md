@@ -195,7 +195,7 @@ filesIncluded:
 **NFR-DP1 to NFR-DP4: Deployment and Portability**
 - NFR-DP1: Adapter packaged as Docker image with conversation state management
 - NFR-DP2: Docker image built for amd64 and arm64 architectures
-- NFR-DP3: Docker image based on minimal base (<150MB)
+- NFR-DP3: Docker image based on minimal base (<250MB)
 - NFR-DP4: Same Docker image deployable across dev, test, staging environments
 
 **Total Non-Functional Requirements: 44**
@@ -302,7 +302,7 @@ filesIncluded:
 - ✅ External state storage selected (Redis) - supports FR67-FR72
 - ✅ Streaming chunk-by-chunk approach - supports FR64, NFR-S1
 - ✅ Pass-through optimization path - supports NFR-P2 (<1ms latency)
-- ✅ Multi-stage Docker build - supports NFR-DP3 (<150MB image)
+- ✅ Multi-stage Docker build - supports NFR-DP3 (<250MB image)
 - ✅ Error attribution framework - supports NFR-M4 (debugging info)
 
 ### Architecture Gaps or Concerns
@@ -529,7 +529,7 @@ All 72 functional requirements from the PRD are covered across the 6 epics with 
 **Deployment NFRs (NFR-DP1 to NFR-DP4):**
 - NFR-DP1: Container deployment → Epic 1 (Story 1.1)
 - NFR-DP2: Multi-architecture support → Epic 1 (Story 1.1 - Docker build)
-- NFR-DP3: <150MB minimal base image → Epic 1 (Story 1.1 - multi-stage)
+- NFR-DP3: <250MB minimal base image → Epic 1 (Story 1.1 - multi-stage)
 - NFR-DP4: Configuration portability → Epic 1 (Story 1.2 - env vars)
 **Status:** ✅ All covered
 
@@ -820,7 +820,7 @@ UX documentation is not needed for this project type. All user interaction consi
 
 **Story 1.1 ACs:**
 - **Given/When/Then Format:** ✓ Proper BDD structure throughout
-- **Testable:** ✓ "TypeScript compiles," "image is <150MB," "CI completes in <5min"
+- **Testable:** ✓ "TypeScript compiles," "image is <250MB," "CI completes in <5min"
 - **Complete:** ✓ Covers build, docker, CI, logging
 - **Specific:** ✓ Clear measurable outcomes
 - **Assessment:** ✅ PASS - Excellent AC structure

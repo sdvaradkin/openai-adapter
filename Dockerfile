@@ -30,6 +30,6 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD ["node", "-e", "const port=process.env.PORT||3000; require('http').get('http://localhost:'+port+'/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1)).on('error', () => process.exit(1))"]
+  CMD ["/nodejs/bin/node", "--input-type=module", "-e", "import('http').then(h=>h.get('http://localhost:'+(process.env.PORT||3000)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1)))"]
 
 CMD ["/app/dist/index.js"]

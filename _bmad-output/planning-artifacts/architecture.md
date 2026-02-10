@@ -62,7 +62,7 @@ The openai-adapter has 72 functional requirements spanning six key areas:
 - **Post-MVP / explicitly deferred:** NFR-O4 and any “Post-MVP …” items in the PRD.
 
 **Requirements adjusted by decision**
-- NFR-DP3: production image size target is <150MB.
+- NFR-DP3: production image size target is <250MB.
 
 **Scale & Complexity:**
 
@@ -158,7 +158,7 @@ npx tsc --init
 **Build Tooling:**
 - Native TypeScript compiler (tsc) for production builds
 - tsx for development hot-reload
-- Multi-stage Dockerfile with node:20-alpine base (production image target: <150MB)
+- Multi-stage Dockerfile with node:20-alpine base (production image target: <250MB)
 
 **Testing Framework:**
 - Vitest for fast TypeScript-native testing

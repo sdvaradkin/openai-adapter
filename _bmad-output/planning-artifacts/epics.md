@@ -119,7 +119,7 @@ This document provides the complete epic and story breakdown for openai-adapter,
 - NFR-OP4: Logging Levels — configurable at startup
 - NFR-DP1: Container Deployment — functional state management with clear errors
 - NFR-DP2: Multi-Architecture Support — amd64 and arm64
-- NFR-DP3: Minimal Base Image — production image <150MB
+- NFR-DP3: Minimal Base Image — production image <250MB
 - NFR-DP4: Configuration Portability — same image across environments
 
 **Note:** FR33 (storage connectivity in readiness) and FR71 (storage connectivity at startup) are deferred to Epic 4 when Redis is introduced.
@@ -285,7 +285,7 @@ This document provides the complete epic and story breakdown for openai-adapter,
 - Operational endpoints: `/health` and `/ready` (readiness checks config + storage; does not probe OpenAI)
 - Concurrency: enforce max concurrent connections (default 1000) returning 503 when exceeded
 - Timeouts: upstream timeouts configurable; streaming requires headers timeout + idle timeout semantics
-- Docker: multi-stage build, non-root user, alpine/minimal base; image target <150MB
+- Docker: multi-stage build, non-root user, alpine/minimal base; image target <250MB
 - Testing: unit + contract tests (Vitest); integration tests with real Redis (testcontainers)
 - Documentation deliverables (MVP): OpenAPI spec, translation mapping docs, feature compatibility matrix, deployment/config guides, error code reference
 

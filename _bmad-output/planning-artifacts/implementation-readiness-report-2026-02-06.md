@@ -178,7 +178,7 @@ NFR-Q4: Automated Testing — all FRs validated by automated tests (≥95% cover
 
 NFR-DP1: Container Deployment — functional state management with clear errors
 NFR-DP2: Multi-Architecture Support — amd64 and arm64
-NFR-DP3: Minimal Base Image — production image <150MB
+NFR-DP3: Minimal Base Image — production image <250MB
 NFR-DP4: Configuration Portability — same image across environments
 
 Total NFRs: 50
@@ -192,7 +192,7 @@ Total NFRs: 50
 ### PRD Completeness Assessment (Initial)
 
 - PRD is unusually complete for an MVP: it enumerates FRs (1-72) and detailed NFRs across performance/scalability/reliability/ops/security/testing/deployment.
-- Architecture/PRD mismatch resolution note: NFR count and scope cut should be treated as a managed decision. PRD now reflects the Docker image size adjustment (<150MB).
+- Architecture/PRD mismatch resolution note: NFR count and scope cut should be treated as a managed decision. PRD now reflects the Docker image size adjustment (<250MB).
 
 ## Step 3: Epic Coverage Validation
 

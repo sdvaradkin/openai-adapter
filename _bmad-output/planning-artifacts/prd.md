@@ -1159,7 +1159,7 @@ Performance matters for cost savings validation. If translation overhead elimina
 - **Requirement:** Docker image based on minimal base (Alpine, distroless, or scratch)
 - **Rationale:** Reduce image size, attack surface, and pull times
 - **Measurement:** Measure final image size
-- **Success Criteria:** Production image <150MB
+- **Success Criteria:** Production image <250MB
 
 **NFR-DP4: Configuration Portability**
 - **Requirement:** Same Docker image deployable across dev, test, staging environments

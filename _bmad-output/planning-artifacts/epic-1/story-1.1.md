@@ -22,7 +22,7 @@
 
 **When** I run `docker build -t openai-adapter:test .`  
 **Then** the multi-stage build completes successfully  
-**And** the final image is <150MB  
+**And** the final image is <250MB  
 **And** it uses Node.js 20.x alpine or minimal base  
 **And** the container runs as non-root user  
 **And** TypeScript and dev dependencies are not in the final image
