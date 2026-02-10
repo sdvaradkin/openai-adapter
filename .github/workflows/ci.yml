@@ -34,12 +34,15 @@ jobs:
       - name: Build Docker image
         run: docker build -t openai-adapter:${{ github.sha }} .
 
-      - name: Test Docker image health endpoint
-        run: |
-          docker run -d -p 3000:3000 --name test-container openai-adapter:${{ github.sha }}
-          sleep 5
-          curl -f http://localhost:3000/health || exit 1
-          docker rm -f test-container
+      - name: Save Docker image
+        run: docker save openai-adapter:${{ github.sha }} -o /tmp/openai-adapter.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/openai-adapter.tar
+          retention-days: 1
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -57,8 +60,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Docker image for integration tests
-        run: docker build -t openai-adapter:${{ github.sha }} .
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load -i /tmp/openai-adapter.tar
 
       - name: Run smoke tests
         run: npm run test:smoke
