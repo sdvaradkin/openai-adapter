@@ -1,5 +1,7 @@
 .vscode/
 
+notes/
+
 node_modules/
 dist/
 coverage/

@@ -78,6 +78,7 @@ Organize by stages or techniques:
 - What worked well  
 - What had to be corrected  
 - Final outcome and practical takeaway  
+- 100 lines limit
 
 ---
 
