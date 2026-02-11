@@ -43,8 +43,8 @@ development_status:
   epic-1: in-progress
   1-1-container-build-pipeline-with-hello-world: done
   1-2-environment-configuration-validation: done
-  1-3-production-health-and-readiness-endpoints: backlog
-  1-4-timeout-and-concurrency-configuration: backlog
+  1-3-production-health-and-readiness-endpoints: done
+  1-4-timeout-and-concurrency-configuration: ready-for-dev
   epic-1-retrospective: optional
   epic-2: backlog
   2-1-http-routing-model-detection-pass-through: backlog
