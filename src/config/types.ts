@@ -6,4 +6,6 @@ export interface AdapterConfig {
   targetUrl: string;
   modelMappingFile: string;
   modelMapping: ModelMapping;
+  upstreamTimeoutSeconds: number;
+  maxConcurrentConnections: number;
 }

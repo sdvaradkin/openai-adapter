@@ -129,6 +129,39 @@ spec:
 
 - `PORT` (default: `3000`) — server listen port
 - `LOG_PRETTY` — set to `1` for pretty logs in development (requires `pino-pretty`)
+- `UPSTREAM_TIMEOUT_SECONDS` (default: `60`) — upstream request timeout in seconds; must be a positive integer
+- `MAX_CONCURRENT_CONNECTIONS` (default: `1000`) — maximum concurrent connections allowed; must be a positive integer
+
+**Configuration Examples:**
+
+```bash
+# Standard configuration
+ADAPTER_TARGET_URL=https://api.openai.com/v1 \
+MODEL_API_MAPPING_FILE=./config/model-mapping.json \
+PORT=3000 \
+UPSTREAM_TIMEOUT_SECONDS=60 \
+MAX_CONCURRENT_CONNECTIONS=1000 \
+npm start
+
+# High throughput configuration
+ADAPTER_TARGET_URL=https://api.openai.com/v1 \
+MODEL_API_MAPPING_FILE=./config/model-mapping.json \
+UPSTREAM_TIMEOUT_SECONDS=120 \
+MAX_CONCURRENT_CONNECTIONS=5000 \
+npm start
+
+# Conservative configuration for limited resources
+ADAPTER_TARGET_URL=https://api.openai.com/v1 \
+MODEL_API_MAPPING_FILE=./config/model-mapping.json \
+UPSTREAM_TIMEOUT_SECONDS=30 \
+MAX_CONCURRENT_CONNECTIONS=100 \
+npm start
+```
+
+**Validation:**
+
+- `UPSTREAM_TIMEOUT_SECONDS` must be a positive integer (1 or greater). Invalid values cause startup to fail with clear error message.
+- `MAX_CONCURRENT_CONNECTIONS` must be a positive integer (1 or greater). When limit is reached, new requests receive HTTP 503 Service Unavailable.
 
 See [.env.example](.env.example) for a complete example.
 

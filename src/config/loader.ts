@@ -6,6 +6,8 @@ import { validateModelMapping } from './validator.js';
 interface EnvConfig {
   ADAPTER_TARGET_URL: string;
   MODEL_API_MAPPING_FILE: string;
+  UPSTREAM_TIMEOUT_SECONDS?: string;
+  MAX_CONCURRENT_CONNECTIONS?: string;
 }
 
 const schema = {
@@ -19,6 +21,12 @@ const schema = {
     MODEL_API_MAPPING_FILE: {
       type: 'string',
       minLength: 1
+    },
+    UPSTREAM_TIMEOUT_SECONDS: {
+      type: 'string'
+    },
+    MAX_CONCURRENT_CONNECTIONS: {
+      type: 'string'
     }
   }
 } as const;
@@ -58,6 +66,42 @@ export function loadEnvConfig(): EnvConfig {
     }
     throw error;
   }
+}
+
+/**
+ * Parse and validate an integer environment variable
+ * @param value The string value to parse
+ * @param variableName The name of the variable (for error messages)
+ * @param defaultValue The default value if not provided
+ * @param minValue The minimum allowed value
+ * @returns The parsed integer value
+ * @throws Error if value is invalid
+ */
+function parseIntegerEnvVar(
+  value: string | undefined,
+  variableName: string,
+  defaultValue: number,
+  minValue: number = 1
+): number {
+  if (value === undefined || value === '') {
+    return defaultValue;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+
+  if (Number.isNaN(parsed)) {
+    throw new Error(
+      `${variableName} must be a numeric value. Example: ${defaultValue}`
+    );
+  }
+
+  if (parsed < minValue) {
+    throw new Error(
+      `${variableName} must be ${minValue} or greater. Example: ${defaultValue}`
+    );
+  }
+
+  return parsed;
 }
 
 function detectDuplicateKeys(jsonContent: string): void {
@@ -170,10 +214,27 @@ export async function loadConfiguration(): Promise<AdapterConfig> {
   
   const rawMapping = await loadModelMappingFile(envConfig.MODEL_API_MAPPING_FILE);
   const modelMapping = validateModelMapping(rawMapping);
+
+  // Parse timeout and concurrency with defaults
+  const upstreamTimeoutSeconds = parseIntegerEnvVar(
+    envConfig.UPSTREAM_TIMEOUT_SECONDS,
+    'UPSTREAM_TIMEOUT_SECONDS',
+    60,
+    1
+  );
+
+  const maxConcurrentConnections = parseIntegerEnvVar(
+    envConfig.MAX_CONCURRENT_CONNECTIONS,
+    'MAX_CONCURRENT_CONNECTIONS',
+    1000,
+    1
+  );
   
   return {
     targetUrl: envConfig.ADAPTER_TARGET_URL,
     modelMappingFile: envConfig.MODEL_API_MAPPING_FILE,
-    modelMapping
+    modelMapping,
+    upstreamTimeoutSeconds,
+    maxConcurrentConnections
   };
 }
