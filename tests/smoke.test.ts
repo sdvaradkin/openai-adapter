@@ -11,6 +11,10 @@ describe('Smoke Tests - Docker Container Health', () => {
     console.log(`Starting container from image: ${imageName}`);
     container = await new GenericContainer(imageName)
       .withExposedPorts(3000)
+      .withEnvironment({
+        ADAPTER_TARGET_URL: 'https://api.openai.com/v1',
+        MODEL_API_MAPPING_FILE: '/app/config/model-mapping.json'
+      })
       .withWaitStrategy(Wait.forLogMessage('Server listening at'))
       .withStartupTimeout(30_000)
       .start();

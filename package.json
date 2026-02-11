@@ -24,6 +24,7 @@
     "docker:clean": "docker rm -f test-container 2>nul || docker rm -f test-container 2>/dev/null || true"
   },
   "dependencies": {
+    "env-schema": "^5.2.1",
     "fastify": "^4.28.1",
     "pino": "^8.21.0"
   },

@@ -26,6 +26,7 @@ ENV NODE_ENV=production
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY config ./config
 
 EXPOSE 3000
 
