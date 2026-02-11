@@ -39,19 +39,16 @@ describe('loadModelMappingFile', () => {
     await expect(loadModelMappingFile(filePath)).rejects.toThrow(/Invalid JSON/);
   });
 
-  it('should handle permission errors', async () => {
-    if (process.platform === 'win32') {
-      // Permission tests are unreliable on Windows, skip
-      return;
-    }
-
+  it.skipIf(process.platform === 'win32')('should handle permission errors', async () => {
     const filePath = join(testDir, 'unreadable.json');
     await writeFile(filePath, '{}');
     await chmod(filePath, 0o000);
 
-    await expect(loadModelMappingFile(filePath)).rejects.toThrow(/Cannot read/);
-    
-    // Restore permissions for cleanup
-    await chmod(filePath, 0o644);
+    try {
+      await expect(loadModelMappingFile(filePath)).rejects.toThrow(/Cannot read/);
+    } finally {
+      // Always restore permissions for cleanup
+      await chmod(filePath, 0o644);
+    }
   });
 });

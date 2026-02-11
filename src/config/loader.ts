@@ -14,7 +14,7 @@ const schema = {
   properties: {
     ADAPTER_TARGET_URL: {
       type: 'string',
-      pattern: '^https?://.+'
+      minLength: 1
     },
     MODEL_API_MAPPING_FILE: {
       type: 'string',
@@ -25,19 +25,32 @@ const schema = {
 
 export function loadEnvConfig(): EnvConfig {
   try {
-    return envSchema<EnvConfig>({
+    const config = envSchema<EnvConfig>({
       schema,
       data: process.env,
       dotenv: false
     });
+    
+    // Validate URL format using URL constructor
+    try {
+      const url = new URL(config.ADAPTER_TARGET_URL);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new Error('URL must use http:// or https:// protocol');
+      }
+    } catch (urlError) {
+      throw new Error(
+        `ADAPTER_TARGET_URL is not a valid HTTP/HTTPS URL: ${config.ADAPTER_TARGET_URL}. ` +
+        'Set ADAPTER_TARGET_URL to a valid HTTP/HTTPS URL like https://api.openai.com/v1'
+      );
+    }
+    
+    return config;
   } catch (error) {
     if (error instanceof Error) {
       let message = `Environment variable validation failed: ${error.message}.`;
       
-      // Add resolution guidance
-      if (error.message.includes('ADAPTER_TARGET_URL')) {
-        message += ' Set ADAPTER_TARGET_URL to a valid HTTP/HTTPS URL like https://api.openai.com/v1';
-      } else if (error.message.includes('MODEL_API_MAPPING_FILE')) {
+      // Add resolution guidance for missing variables only
+      if (error.message.includes('MODEL_API_MAPPING_FILE') && !error.message.includes('Set')) {
         message += ' Set MODEL_API_MAPPING_FILE to the path of your JSON configuration file.';
       }
       
@@ -48,18 +61,62 @@ export function loadEnvConfig(): EnvConfig {
 }
 
 function detectDuplicateKeys(jsonContent: string): void {
-  // Simple regex to find keys in a flat JSON object
-  // Matches "key":
-  const keyRegex = /"([^"\\]*(?:\\.[^"\\]*)*)"\s*:/g;
+  // Check for duplicate keys at the top level only by parsing character by character
   const keys = new Set<string>();
-  let match;
-
-  while ((match = keyRegex.exec(jsonContent)) !== null) {
-    const key = match[1];
-    if (keys.has(key)) {
-      throw new Error(`Duplicate model name found in mapping file: "${key}"`);
+  let inString = false;
+  let escape = false;
+  let currentKey = '';
+  let collectingKey = false;
+  let depth = 0;
+  
+  for (let i = 0; i < jsonContent.length; i++) {
+    const char = jsonContent[i];
+    
+    if (escape) {
+      if (collectingKey) currentKey += char;
+      escape = false;
+      continue;
     }
-    keys.add(key);
+    
+    if (char === '\\') {
+      escape = true;
+      if (collectingKey) currentKey += char;
+      continue;
+    }
+    
+    if (char === '"') {
+      if (inString) {
+        inString = false;
+        if (collectingKey && depth === 1) {
+          // End of key at top level
+          collectingKey = false;
+          if (keys.has(currentKey)) {
+            throw new Error(`Duplicate model name found in mapping file: "${currentKey}"`);
+          }
+          keys.add(currentKey);
+          currentKey = '';
+        }
+      } else {
+        inString = true;
+        if (depth === 1 && !collectingKey) {
+          // Start of potential key at top level
+          const remainingContent = jsonContent.slice(i);
+          const keyMatch = remainingContent.match(/^"[^"]*"\s*:/);
+          if (keyMatch) {
+            collectingKey = true;
+            currentKey = '';
+          }
+        }
+      }
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') depth++;
+      else if (char === '}') depth--;
+    } else if (collectingKey) {
+      currentKey += char;
+    }
   }
 }
 

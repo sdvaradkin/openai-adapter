@@ -3,6 +3,12 @@ import { pathToFileURL } from 'node:url';
 import type { AdapterConfig } from './config/types.js';
 import { loadConfiguration } from './config/loader.js';
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    config: AdapterConfig;
+  }
+}
+
 export type BuildServerOptions = {
   logger?: FastifyServerOptions['logger'];
   config?: AdapterConfig;

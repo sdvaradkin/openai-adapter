@@ -39,8 +39,17 @@ curl -f http://localhost:3000/health
 
 ## Environment variables
 
+### Required
+
+- `ADAPTER_TARGET_URL` — target OpenAI API base URL (e.g., `https://api.openai.com/v1`)
+- `MODEL_API_MAPPING_FILE` — path to model-to-API mapping JSON file (e.g., `./config/model-mapping.json`)
+
+### Optional
+
 - `PORT` (default: `3000`) — server listen port
-- `LOG_PRETTY` (optional) — set to `1` for pretty logs in development (requires `pino-pretty`)
+- `LOG_PRETTY` — set to `1` for pretty logs in development (requires `pino-pretty`)
+
+See [.env.example](.env.example) for a complete example.
 
 ## Docker
 
