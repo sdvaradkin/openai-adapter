@@ -44,7 +44,14 @@ describe('Regression Tests - Configuration Validation', () => {
   const imageName = process.env.DOCKER_IMAGE || 'openai-adapter:test';
   const dockerRunTimeoutMs = 15_000;
 
-  function getDockerOutput(error: any): string {
+  interface DockerError {
+    status?: number;
+    stderr?: string;
+    stdout?: string;
+    message?: string;
+  }
+
+  function getDockerOutput(error: DockerError): string {
     return String(error?.stderr || error?.stdout || error?.message || '');
   }
 
@@ -56,10 +63,11 @@ describe('Regression Tests - Configuration Validation', () => {
       );
       // If we get here, container didn't fail
       expect.fail('Container should have exited with error');
-    } catch (error: any) {
+    } catch (error) {
+      const dockerError = error as DockerError;
       // Container should exit with non-zero code
-      expect(error.status).not.toBe(0);
-      expect(getDockerOutput(error)).toContain('ADAPTER_TARGET_URL');
+      expect(dockerError.status).not.toBe(0);
+      expect(getDockerOutput(dockerError)).toContain('ADAPTER_TARGET_URL');
     }
   });
 
@@ -70,8 +78,9 @@ describe('Regression Tests - Configuration Validation', () => {
         { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
-    } catch (error: any) {
-      expect(error.status).not.toBe(0);
+    } catch (error) {
+      const dockerError = error as DockerError;
+      expect(dockerError.status).not.toBe(0);
     }
   });
 
@@ -82,9 +91,10 @@ describe('Regression Tests - Configuration Validation', () => {
         { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
-    } catch (error: any) {
-      expect(error.status).not.toBe(0);
-      expect(getDockerOutput(error)).toContain('MODEL_API_MAPPING_FILE');
+    } catch (error) {
+      const dockerError = error as DockerError;
+      expect(dockerError.status).not.toBe(0);
+      expect(getDockerOutput(dockerError)).toContain('MODEL_API_MAPPING_FILE');
     }
   });
 
@@ -95,9 +105,10 @@ describe('Regression Tests - Configuration Validation', () => {
         { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
-    } catch (error: any) {
-      expect(error.status).not.toBe(0);
-      expect(getDockerOutput(error)).toContain('not found');
+    } catch (error) {
+      const dockerError = error as DockerError;
+      expect(dockerError.status).not.toBe(0);
+      expect(getDockerOutput(dockerError)).toContain('not found');
     }
   });
 
@@ -108,9 +119,10 @@ describe('Regression Tests - Configuration Validation', () => {
         { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
-    } catch (error: any) {
-      expect(error.status).not.toBe(0);
-      expect(getDockerOutput(error)).toContain('Invalid JSON');
+    } catch (error) {
+      const dockerError = error as DockerError;
+      expect(dockerError.status).not.toBe(0);
+      expect(getDockerOutput(dockerError)).toContain('Invalid JSON');
     }
   });
 
@@ -121,10 +133,11 @@ describe('Regression Tests - Configuration Validation', () => {
         { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
-    } catch (error: any) {
-      expect(error.status).not.toBe(0);
-      expect(getDockerOutput(error)).toContain('Invalid API type');
-      expect(getDockerOutput(error)).toContain('gpt-4');
+    } catch (error) {
+      const dockerError = error as DockerError;
+      expect(dockerError.status).not.toBe(0);
+      expect(getDockerOutput(dockerError)).toContain('Invalid API type');
+      expect(getDockerOutput(dockerError)).toContain('gpt-4');
     }
   });
 
@@ -135,10 +148,11 @@ describe('Regression Tests - Configuration Validation', () => {
         { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
-    } catch (error: any) {
-      expect(error.status).not.toBe(0);
-      expect(getDockerOutput(error)).toContain('Duplicate model name');
-      expect(getDockerOutput(error)).toContain('model-1');
+    } catch (error) {
+      const dockerError = error as DockerError;
+      expect(dockerError.status).not.toBe(0);
+      expect(getDockerOutput(dockerError)).toContain('Duplicate model name');
+      expect(getDockerOutput(dockerError)).toContain('model-1');
     }
   });
 });

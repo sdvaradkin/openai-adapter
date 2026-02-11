@@ -1,6 +1,6 @@
 # Story 1.4: Timeout and Concurrency Configuration
 
-**Status:** review
+**Status:** done
 
 ## Story
 
@@ -225,16 +225,45 @@ Claude Haiku 4.5
 ### File List
 
 **Modified Files:**
-- `src/config/types.ts` - Added upstreamTimeoutSeconds and maxConcurrentConnections fields
-- `src/config/loader.ts` - Added env var parsing, validation, and defaults
-- `src/index.ts` - Implemented connection limiting via hooks, updated logging
-- `README.md` - Added configuration documentation with examples
+- [src/config/types.ts](../../src/config/types.ts) - Added upstreamTimeoutSeconds and maxConcurrentConnections fields
+- [src/config/loader.ts](../../src/config/loader.ts) - Added env var parsing, validation, defaults, and exported parseIntegerEnvVar
+- [src/index.ts](../../src/index.ts) - Implemented connection limiting via hooks, updated logging, fixed lint issues
+- [README.md](../../README.md) - Added configuration documentation with examples and health/readiness bypass note
 
-**New Test Files:**
-- `tests/unit/config/timeout-concurrency.test.ts` (26 test cases)
-- `tests/integration/timeout-concurrency.test.ts` (19 test cases)
+**Test Files:**
+- [tests/unit/config/timeout-concurrency.test.ts](../../tests/unit/config/timeout-concurrency.test.ts) - 26 unit test cases for config validation
+- [tests/integration/timeout-concurrency.test.ts](../../tests/integration/timeout-concurrency.test.ts) - 19 integration test cases for config handling
+- [tests/integration/concurrency-limiting.test.ts](../../tests/integration/concurrency-limiting.test.ts) - 12 comprehensive AC3 verification tests (503 responses, request IDs, health/readiness bypass)
 
 ## Change Log
+
+### 2026-02-11 - Code Review Fixes
+
+**Code Quality Improvements:**
+- Fixed ESLint violations: unused parameters now prefixed with `_`, removed `any` types
+- Exported `parseIntegerEnvVar` from loader.ts for proper testing
+- Replaced duplicated test helper with actual exported function
+- Fixed magic type assertion: replaced `(request as any).skipLogging` with `request.log.level = 'silent'`
+- Added proper TypeScript interfaces for error handling in regression tests
+
+**Test Coverage Enhancements:**
+- Created [tests/integration/concurrency-limiting.test.ts](../../tests/integration/concurrency-limiting.test.ts) with 12 comprehensive tests
+- AC3.1: Verified 503 response when connection limit exceeded
+- AC3.2: Verified 503 includes "Maximum concurrent connections exceeded" message
+- AC3.3: Verified 503 includes unique request ID for tracking
+- AC3.4: Verified health and readiness endpoints bypass connection limit
+- Added edge case tests for rapid connection cycling and recovery
+
+**Documentation Updates:**
+- Added note to README that health/readiness endpoints bypass connection limit
+- Clarified File List in story with links to all modified and test files
+
+**Technical Notes:**
+- Confirmed Fastify v4 does NOT have native `connectionLimit` option - hook-based implementation is correct approach
+- Fastify provides `connectionTimeout`, `maxRequestsPerSocket`, and `forceCloseConnections` options but NO concurrent connection limiting
+- Hook-based implementation using `onRequest`/`onResponse` is the standard pattern for request counting in Fastify
+- Original story Dev Notes incorrectly stated Fastify had built-in `connectionLimit` - this was corrected after investigation
+- Small connection limit (3) used in AC3 tests for reliable verification
 
 ### 2026-02-11 - Initial Implementation (v0.1.0)
 

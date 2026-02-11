@@ -1,36 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { parseIntegerEnvVar, loadConfiguration } from '../../../src/config/loader.js';
-
-/**
- * Helper function to parse integer environment variables
- * Exposed for testing purposes by re-implementing locally for unit tests
- */
-function testParseIntegerEnvVar(
-  value: string | undefined,
-  variableName: string,
-  defaultValue: number,
-  minValue: number = 1
-): number {
-  if (value === undefined || value === '') {
-    return defaultValue;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-
-  if (Number.isNaN(parsed)) {
-    throw new Error(
-      `${variableName} must be a numeric value. Example: ${defaultValue}`
-    );
-  }
-
-  if (parsed < minValue) {
-    throw new Error(
-      `${variableName} must be ${minValue} or greater. Example: ${defaultValue}`
-    );
-  }
-
-  return parsed;
-}
+import { parseIntegerEnvVar } from '../../../src/config/loader.js';
 
 describe('Timeout and Concurrency Configuration - Unit Tests', () => {
   const originalEnv = process.env;
@@ -57,42 +26,42 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
       ];
 
       testCases.forEach(({ value, expected }) => {
-        const result = testParseIntegerEnvVar(value, 'UPSTREAM_TIMEOUT_SECONDS', 60);
+        const result = parseIntegerEnvVar(value, 'UPSTREAM_TIMEOUT_SECONDS', 60);
         expect(result).toBe(expected);
       });
     });
 
     it('uses default value when env var not set', () => {
-      const result = testParseIntegerEnvVar(undefined, 'UPSTREAM_TIMEOUT_SECONDS', 60);
+      const result = parseIntegerEnvVar(undefined, 'UPSTREAM_TIMEOUT_SECONDS', 60);
       expect(result).toBe(60);
     });
 
     it('uses default value when env var is empty string', () => {
-      const result = testParseIntegerEnvVar('', 'UPSTREAM_TIMEOUT_SECONDS', 60);
+      const result = parseIntegerEnvVar('', 'UPSTREAM_TIMEOUT_SECONDS', 60);
       expect(result).toBe(60);
     });
 
     it('rejects negative timeout values', () => {
       expect(() => {
-        testParseIntegerEnvVar('-1', 'UPSTREAM_TIMEOUT_SECONDS', 60);
+        parseIntegerEnvVar('-1', 'UPSTREAM_TIMEOUT_SECONDS', 60);
       }).toThrow('UPSTREAM_TIMEOUT_SECONDS must be 1 or greater');
     });
 
     it('rejects zero timeout values', () => {
       expect(() => {
-        testParseIntegerEnvVar('0', 'UPSTREAM_TIMEOUT_SECONDS', 60);
+        parseIntegerEnvVar('0', 'UPSTREAM_TIMEOUT_SECONDS', 60);
       }).toThrow('UPSTREAM_TIMEOUT_SECONDS must be 1 or greater');
     });
 
     it('rejects non-numeric timeout values', () => {
       expect(() => {
-        testParseIntegerEnvVar('abc', 'UPSTREAM_TIMEOUT_SECONDS', 60);
+        parseIntegerEnvVar('abc', 'UPSTREAM_TIMEOUT_SECONDS', 60);
       }).toThrow('UPSTREAM_TIMEOUT_SECONDS must be a numeric value');
     });
 
     it('error message includes valid range and example', () => {
       try {
-        testParseIntegerEnvVar('invalid', 'UPSTREAM_TIMEOUT_SECONDS', 60);
+        parseIntegerEnvVar('invalid', 'UPSTREAM_TIMEOUT_SECONDS', 60);
         expect.fail('Should have thrown error');
       } catch (error) {
         expect((error as Error).message).toContain('numeric value');
@@ -112,42 +81,42 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
       ];
 
       testCases.forEach(({ value, expected }) => {
-        const result = testParseIntegerEnvVar(value, 'MAX_CONCURRENT_CONNECTIONS', 1000);
+        const result = parseIntegerEnvVar(value, 'MAX_CONCURRENT_CONNECTIONS', 1000);
         expect(result).toBe(expected);
       });
     });
 
     it('uses default value when env var not set', () => {
-      const result = testParseIntegerEnvVar(undefined, 'MAX_CONCURRENT_CONNECTIONS', 1000);
+      const result = parseIntegerEnvVar(undefined, 'MAX_CONCURRENT_CONNECTIONS', 1000);
       expect(result).toBe(1000);
     });
 
     it('uses default value when env var is empty string', () => {
-      const result = testParseIntegerEnvVar('', 'MAX_CONCURRENT_CONNECTIONS', 1000);
+      const result = parseIntegerEnvVar('', 'MAX_CONCURRENT_CONNECTIONS', 1000);
       expect(result).toBe(1000);
     });
 
     it('rejects negative concurrency values', () => {
       expect(() => {
-        testParseIntegerEnvVar('-1', 'MAX_CONCURRENT_CONNECTIONS', 1000);
+        parseIntegerEnvVar('-1', 'MAX_CONCURRENT_CONNECTIONS', 1000);
       }).toThrow('MAX_CONCURRENT_CONNECTIONS must be 1 or greater');
     });
 
     it('rejects zero concurrency values', () => {
       expect(() => {
-        testParseIntegerEnvVar('0', 'MAX_CONCURRENT_CONNECTIONS', 1000);
+        parseIntegerEnvVar('0', 'MAX_CONCURRENT_CONNECTIONS', 1000);
       }).toThrow('MAX_CONCURRENT_CONNECTIONS must be 1 or greater');
     });
 
     it('rejects non-numeric concurrency values', () => {
       expect(() => {
-        testParseIntegerEnvVar('xyz', 'MAX_CONCURRENT_CONNECTIONS', 1000);
+        parseIntegerEnvVar('xyz', 'MAX_CONCURRENT_CONNECTIONS', 1000);
       }).toThrow('MAX_CONCURRENT_CONNECTIONS must be a numeric value');
     });
 
     it('error message includes valid range and example', () => {
       try {
-        testParseIntegerEnvVar('invalid', 'MAX_CONCURRENT_CONNECTIONS', 1000);
+        parseIntegerEnvVar('invalid', 'MAX_CONCURRENT_CONNECTIONS', 1000);
         expect.fail('Should have thrown error');
       } catch (error) {
         expect((error as Error).message).toContain('numeric value');
@@ -162,12 +131,12 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
       delete process.env.MAX_CONCURRENT_CONNECTIONS;
 
       // This test requires actual file operations, so we'll test the validation logic
-      const timeoutResult = testParseIntegerEnvVar(
+      const timeoutResult = parseIntegerEnvVar(
         process.env.UPSTREAM_TIMEOUT_SECONDS,
         'UPSTREAM_TIMEOUT_SECONDS',
         60
       );
-      const concurrencyResult = testParseIntegerEnvVar(
+      const concurrencyResult = parseIntegerEnvVar(
         process.env.MAX_CONCURRENT_CONNECTIONS,
         'MAX_CONCURRENT_CONNECTIONS',
         1000
@@ -180,7 +149,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
     it('loads custom timeout value from env var', () => {
       process.env.UPSTREAM_TIMEOUT_SECONDS = '120';
 
-      const result = testParseIntegerEnvVar(
+      const result = parseIntegerEnvVar(
         process.env.UPSTREAM_TIMEOUT_SECONDS,
         'UPSTREAM_TIMEOUT_SECONDS',
         60
@@ -192,7 +161,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
     it('loads custom concurrency value from env var', () => {
       process.env.MAX_CONCURRENT_CONNECTIONS = '2000';
 
-      const result = testParseIntegerEnvVar(
+      const result = parseIntegerEnvVar(
         process.env.MAX_CONCURRENT_CONNECTIONS,
         'MAX_CONCURRENT_CONNECTIONS',
         1000
@@ -205,7 +174,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
       process.env.UPSTREAM_TIMEOUT_SECONDS = 'not-a-number';
 
       expect(() => {
-        testParseIntegerEnvVar(
+        parseIntegerEnvVar(
           process.env.UPSTREAM_TIMEOUT_SECONDS,
           'UPSTREAM_TIMEOUT_SECONDS',
           60
@@ -217,7 +186,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
       process.env.MAX_CONCURRENT_CONNECTIONS = 'not-a-number';
 
       expect(() => {
-        testParseIntegerEnvVar(
+        parseIntegerEnvVar(
           process.env.MAX_CONCURRENT_CONNECTIONS,
           'MAX_CONCURRENT_CONNECTIONS',
           1000
@@ -276,7 +245,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
   describe('Error message clarity', () => {
     it('provides clear error for non-numeric timeout', () => {
       try {
-        testParseIntegerEnvVar('abc', 'UPSTREAM_TIMEOUT_SECONDS', 60);
+        parseIntegerEnvVar('abc', 'UPSTREAM_TIMEOUT_SECONDS', 60);
         expect.fail('Should throw');
       } catch (error) {
         const message = (error as Error).message;
@@ -288,7 +257,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
 
     it('provides clear error for negative timeout', () => {
       try {
-        testParseIntegerEnvVar('-50', 'UPSTREAM_TIMEOUT_SECONDS', 60);
+        parseIntegerEnvVar('-50', 'UPSTREAM_TIMEOUT_SECONDS', 60);
         expect.fail('Should throw');
       } catch (error) {
         const message = (error as Error).message;
@@ -300,7 +269,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
 
     it('provides clear error for non-numeric concurrency', () => {
       try {
-        testParseIntegerEnvVar('xyz', 'MAX_CONCURRENT_CONNECTIONS', 1000);
+        parseIntegerEnvVar('xyz', 'MAX_CONCURRENT_CONNECTIONS', 1000);
         expect.fail('Should throw');
       } catch (error) {
         const message = (error as Error).message;
@@ -312,7 +281,7 @@ describe('Timeout and Concurrency Configuration - Unit Tests', () => {
 
     it('provides clear error for negative concurrency', () => {
       try {
-        testParseIntegerEnvVar('-500', 'MAX_CONCURRENT_CONNECTIONS', 1000);
+        parseIntegerEnvVar('-500', 'MAX_CONCURRENT_CONNECTIONS', 1000);
         expect.fail('Should throw');
       } catch (error) {
         const message = (error as Error).message;

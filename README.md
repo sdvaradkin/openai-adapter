@@ -162,6 +162,7 @@ npm start
 
 - `UPSTREAM_TIMEOUT_SECONDS` must be a positive integer (1 or greater). Invalid values cause startup to fail with clear error message.
 - `MAX_CONCURRENT_CONNECTIONS` must be a positive integer (1 or greater). When limit is reached, new requests receive HTTP 503 Service Unavailable.
+- **Note:** Health (`/health`) and readiness (`/ready`) endpoints bypass the connection limit and are always available for orchestration platform health checks.
 
 See [.env.example](.env.example) for a complete example.
 

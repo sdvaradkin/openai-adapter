@@ -77,7 +77,7 @@ export function loadEnvConfig(): EnvConfig {
  * @returns The parsed integer value
  * @throws Error if value is invalid
  */
-function parseIntegerEnvVar(
+export function parseIntegerEnvVar(
   value: string | undefined,
   variableName: string,
   defaultValue: number,

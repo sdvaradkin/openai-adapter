@@ -45,7 +45,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   const maxConnections = options.config?.maxConcurrentConnections ?? 1000;
 
   // Register hook to track connections and enforce limit
-  app.addHook('onRequest', async (request, reply) => {
+  app.addHook('onRequest', async (request, _reply) => {
     // Health and readiness endpoints bypass connection limit
     if (request.url === '/health' || request.url === '/ready') {
       return;
@@ -55,7 +55,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
 
     if (activeConnections > maxConnections) {
       activeConnections--;
-      void reply.code(503).send({
+      void _reply.code(503).send({
         error: 'Service Unavailable',
         message: 'Maximum concurrent connections exceeded',
         requestId: request.id
@@ -65,7 +65,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   });
 
   // Register hook to decrement connection count on response
-  app.addHook('onResponse', async (request, reply) => {
+  app.addHook('onResponse', async (request, _reply) => {
     if (request.url !== '/health' && request.url !== '/ready') {
       activeConnections--;
     }
@@ -74,9 +74,9 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   // Register hook to exclude health/readiness from request logging
   // These endpoints are called frequently by orchestration platforms
   // and shouldn't clutter application logs
-  app.addHook('onRequest', async (request, reply) => {
+  app.addHook('onRequest', async (request, _reply) => {
     if (request.url === '/health' || request.url === '/ready') {
-      (request as any).skipLogging = true;
+      request.log.level = 'silent';
     }
   });
 
