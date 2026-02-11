@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { buildServer } from '../../src/index.js';
-import { setConfigValid } from '../../src/config/state.js';
+import { buildServer } from '../../../src/index.js';
+import { setConfigValid } from '../../../src/config/state.js';
 import type { FastifyInstance } from 'fastify';
 
 describe('Concurrency Limiting - AC3 Verification', () => {
