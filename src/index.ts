@@ -2,6 +2,8 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { pathToFileURL } from 'node:url';
 import type { AdapterConfig } from './config/types.js';
 import { loadConfiguration } from './config/loader.js';
+import { getHealth, getReadiness } from './handlers/health.js';
+import { setConfigValid, setConfigInvalid } from './config/state.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -38,9 +40,22 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     app.decorate('config', options.config);
   }
 
-  app.get('/health', async () => {
-    return { status: 'ok' };
+  // Register hook to exclude health/readiness from request logging
+  // These endpoints are called frequently by orchestration platforms
+  // and shouldn't clutter application logs
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.url === '/health' || request.url === '/ready') {
+      request.skipLogging = true;
+    }
   });
+
+  // Health endpoint - Kubernetes liveness probe
+  // Always returns 200 if process is alive
+  app.get('/health', getHealth);
+
+  // Readiness endpoint - Kubernetes readiness probe
+  // Returns 200 if ready to accept traffic, 503 otherwise
+  app.get('/ready', getReadiness);
 
   return app;
 }
@@ -57,6 +72,9 @@ export async function startServer(): Promise<void> {
       modelCount: Object.keys(config.modelMapping).length 
     }));
 
+    // Set global config state to valid for readiness handler
+    setConfigValid(config);
+
     const app = buildServer({ config });
 
     const port = Number.parseInt(process.env.PORT ?? '3000', 10);
@@ -64,6 +82,9 @@ export async function startServer(): Promise<void> {
     await app.listen({ port, host: '0.0.0.0' });
     app.log.info({ action: 'server_started', port });
   } catch (error) {
+    // Set global config state to invalid for readiness handler
+    setConfigInvalid(error instanceof Error ? error : new Error(String(error)));
+
     console.error(JSON.stringify({
       level: 'error',
       msg: 'Configuration validation failed',

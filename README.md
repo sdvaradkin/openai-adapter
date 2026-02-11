@@ -31,10 +31,91 @@ npm run build
 PORT=3000 node dist/index.js
 ```
 
-Health endpoint:
+## Operational Endpoints
 
+### Health Endpoint (`/health`) - Liveness Probe
+
+The health endpoint is a **liveness probe** used by container orchestration platforms (Kubernetes, Docker Swarm, etc.) to determine if the process is alive.
+
+**Characteristics:**
+- Always returns HTTP 200 if the process is running
+- No configuration or dependency checks
+- Ultra-lightweight, designed for frequent polling (every few seconds)
+- Does not log requests to avoid clutter
+
+**Request:**
 ```bash
-curl -f http://localhost:3000/health
+curl http://localhost:3000/health
+```
+
+**Response (success):**
+```json
+{
+  "status": "ok"
+}
+```
+
+### Readiness Endpoint (`/ready`) - Readiness Probe
+
+The readiness endpoint is a **readiness probe** used by load balancers and service meshes to determine if the instance can accept traffic.
+
+**Characteristics:**
+- Returns HTTP 200 when adapter is fully operational
+- Returns HTTP 503 when adapter cannot accept traffic (e.g., configuration invalid)
+- Verifies configuration is valid and loaded
+- Does not log requests to avoid clutter
+- Does NOT check external dependencies (Redis, upstream APIs) in MVP scope
+
+**Request:**
+```bash
+curl http://localhost:3000/ready
+```
+
+**Response (ready):**
+```json
+{
+  "status": "ready",
+  "checks": {
+    "config": "ok"
+  }
+}
+```
+
+**Response (not ready):**
+```json
+{
+  "status": "not_ready",
+  "checks": {
+    "config": "failed"
+  },
+  "message": "Configuration validation failed"
+}
+```
+
+### Kubernetes Configuration Example
+
+Use these endpoints in Kubernetes health checks:
+
+```yaml
+spec:
+  containers:
+  - name: openai-adapter
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 3000
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 3000
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 1
 ```
 
 ## Environment variables
