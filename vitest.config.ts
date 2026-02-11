@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    exclude: ['**/node_modules/**', '**/dist/**', 'tests/smoke.test.ts', 'tests/regression.test.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/tests/integration/**'],
     environment: 'node',
     coverage: {
       reporter: ['text', 'json', 'html'],
