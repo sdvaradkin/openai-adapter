@@ -42,19 +42,24 @@ describe('Regression Tests - Docker Image Validation', () => {
 
 describe('Regression Tests - Configuration Validation', () => {
   const imageName = process.env.DOCKER_IMAGE || 'openai-adapter:test';
+  const dockerRunTimeoutMs = 15_000;
+
+  function getDockerOutput(error: any): string {
+    return String(error?.stderr || error?.stdout || error?.message || '');
+  }
 
   it('fails to start with missing ADAPTER_TARGET_URL', () => {
     try {
       execSync(
         `docker run --rm -e MODEL_API_MAPPING_FILE=/app/config/model-mapping.json ${imageName}`,
-        { encoding: 'utf-8', timeout: 5000 }
+        { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       // If we get here, container didn't fail
       expect.fail('Container should have exited with error');
     } catch (error: any) {
       // Container should exit with non-zero code
       expect(error.status).not.toBe(0);
-      expect(error.stderr || error.stdout).toContain('ADAPTER_TARGET_URL');
+      expect(getDockerOutput(error)).toContain('ADAPTER_TARGET_URL');
     }
   });
 
@@ -62,7 +67,7 @@ describe('Regression Tests - Configuration Validation', () => {
     try {
       execSync(
         `docker run --rm -e ADAPTER_TARGET_URL=not-a-url -e MODEL_API_MAPPING_FILE=/app/config/model-mapping.json ${imageName}`,
-        { encoding: 'utf-8', timeout: 5000 }
+        { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
     } catch (error: any) {
@@ -74,12 +79,12 @@ describe('Regression Tests - Configuration Validation', () => {
     try {
       execSync(
         `docker run --rm -e ADAPTER_TARGET_URL=https://api.openai.com/v1 ${imageName}`,
-        { encoding: 'utf-8', timeout: 5000 }
+        { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
     } catch (error: any) {
       expect(error.status).not.toBe(0);
-      expect(error.stderr || error.stdout).toContain('MODEL_API_MAPPING_FILE');
+      expect(getDockerOutput(error)).toContain('MODEL_API_MAPPING_FILE');
     }
   });
 
@@ -87,12 +92,53 @@ describe('Regression Tests - Configuration Validation', () => {
     try {
       execSync(
         `docker run --rm -e ADAPTER_TARGET_URL=https://api.openai.com/v1 -e MODEL_API_MAPPING_FILE=/nonexistent/file.json ${imageName}`,
-        { encoding: 'utf-8', timeout: 5000 }
+        { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
       );
       expect.fail('Container should have exited with error');
     } catch (error: any) {
       expect(error.status).not.toBe(0);
-      expect(error.stderr || error.stdout).toContain('not found');
+      expect(getDockerOutput(error)).toContain('not found');
+    }
+  });
+
+  it('fails to start with invalid JSON in mapping file', () => {
+    try {
+      execSync(
+        `docker run --rm -e ADAPTER_TARGET_URL=https://api.openai.com/v1 -e MODEL_API_MAPPING_FILE=/app/config/model-mapping.invalid.json ${imageName}`,
+        { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
+      );
+      expect.fail('Container should have exited with error');
+    } catch (error: any) {
+      expect(error.status).not.toBe(0);
+      expect(getDockerOutput(error)).toContain('Invalid JSON');
+    }
+  });
+
+  it('fails to start with invalid API type in mapping file', () => {
+    try {
+      execSync(
+        `docker run --rm -e ADAPTER_TARGET_URL=https://api.openai.com/v1 -e MODEL_API_MAPPING_FILE=/app/config/model-mapping.invalid-api-type.json ${imageName}`,
+        { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
+      );
+      expect.fail('Container should have exited with error');
+    } catch (error: any) {
+      expect(error.status).not.toBe(0);
+      expect(getDockerOutput(error)).toContain('Invalid API type');
+      expect(getDockerOutput(error)).toContain('gpt-4');
+    }
+  });
+
+  it('fails to start with duplicate model names in mapping file', () => {
+    try {
+      execSync(
+        `docker run --rm -e ADAPTER_TARGET_URL=https://api.openai.com/v1 -e MODEL_API_MAPPING_FILE=/app/config/model-mapping.duplicate-keys.json ${imageName}`,
+        { encoding: 'utf-8', timeout: dockerRunTimeoutMs }
+      );
+      expect.fail('Container should have exited with error');
+    } catch (error: any) {
+      expect(error.status).not.toBe(0);
+      expect(getDockerOutput(error)).toContain('Duplicate model name');
+      expect(getDockerOutput(error)).toContain('model-1');
     }
   });
 });

@@ -1,7 +1,7 @@
 # Story 1.2: Environment Configuration & Validation
 
 **Epic:** [Epic 1: Deploy & Operate the Adapter](../planning-artifacts/epic-1/epic-1.md)  
-**Status:** in-progress
+**Status:** done
 
 ## User Story
 
@@ -534,12 +534,15 @@ Implemented comprehensive configuration management system with fail-fast validat
 - `tests/unit/config/file-loader.test.ts` - File loading tests
 - `config/model-mapping.json` - Working configuration for testing
 - `config/model-mapping.example.json` - Example configuration
+- `config/model-mapping.invalid.json` - Invalid JSON mapping file (test fixture)
+- `config/model-mapping.invalid-api-type.json` - Invalid API type mapping file (test fixture)
+- `config/model-mapping.duplicate-keys.json` - Duplicate key mapping file (test fixture)
 - `.env.example` - Environment variable examples
 
 **Modified Files:**
 - `src/index.ts` - Integrated configuration loading into server startup
 - `tests/smoke.test.ts` - Added environment variables to container setup
-- `tests/regression.test.ts` - Added 4 configuration validation regression tests
+- `tests/regression.test.ts` - Added configuration validation regression tests
 - `Dockerfile` - Added COPY config step to include mapping files in container
 - `package.json` - Added env-schema dependency
 
@@ -552,30 +555,28 @@ Implemented comprehensive configuration management system with fail-fast validat
 
 ## Senior Developer Review (AI)
 
+### Review 1
+
 **Date:** 2026-02-11
 **Reviewer:** Amelia (AI)
 **Outcome:** 🔴 CHANGES REQUESTED
 
-### Critical Findings (Must Fix)
+**Summary:** Required fixes for duplicate-key detection, env error guidance, Fastify config injection, and git hygiene.
 
-1.  **AC Violation: Duplicate Key Validation**
-    *   **Finding:** The AC "Error Handling: Invalid Mapping Data" requires: "When the mapping file contains duplicate model names... Then startup fails indicating duplicate key error".
-    *   **Evidence:** \src/config/loader.ts\ uses standard \JSON.parse()\. Standard JSON parsers accept duplicates silently (last one wins).
-    *   **Requirement:** Implement strict JSON parsing or validation that detects duplicates (e.g., check raw string or use a strict parser) OR negotiate AC change. The current implementation accepts duplicates silently, violating the "fail fast" requirement.
+### Review 2
 
-2.  **AC Partial Fix: Error Resolution Guidance**
-    *   **Finding:** AC requires "the error message includes resolution guidance".
-    *   **Evidence:** \src/config/loader.ts\ wraps errors: \Environment variable validation failed: \\. This produces generic schema errors but lacks the requested helpful examples (e.g., "Set ADAPTER_TARGET_URL to a valid...").
-    *   **Requirement:** Enhance \src/config/loader.ts\ catch block to map specific schema errors to user-friendly resolution messages.
+**Date:** 2026-02-11
+**Reviewer:** Amelia (AI)
+**Outcome:** 🟢 APPROVED
 
-### Medium Findings (Should Fix)
+**Verified Fixes:**
+- Duplicate key detection implemented before JSON parse
+- Env var errors include resolution guidance
+- Server config is attached to Fastify instance
+- Unit + regression coverage added for invalid JSON, invalid API type, and duplicate keys
 
-3.  **Code Smell: Config Injection Void**
-    *   **Finding:** \src/index.ts\ passes \config\ to \uildServer({ config })\, but \src/index.ts\'s \uildServer\ implementation ignores it completely.
-    *   **Requirement:** Either attach the config to the instance for future use (e.g., \pp.decorate('config', config)\) or remove the unused parameter.
-
-### Documentation & Process
-
-4.  **Git Status:**
-    *   \src/config/\ and \	ests/unit/\ files are untracked. Please commit them.
+**Low-Severity Follow-ups (Optional):**
+1. URL validation uses a regex (not full URL parsing). Consider `new URL()` validation for stricter correctness.
+2. Duplicate key detection uses a regex heuristic. It is OK for a flat object mapping, but may misbehave if nested JSON is ever allowed.
+3. `app.decorate('config', ...)` is not type-augmented; consider adding Fastify module augmentation for typed access.
 
