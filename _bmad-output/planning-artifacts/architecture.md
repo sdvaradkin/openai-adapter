@@ -401,7 +401,7 @@ This section describes the complete request/response flow through the adapter, s
 | **Translation Engines** | Field-by-field transformation | 500 Internal Error |
 | **HTTP Client** | OpenAI communication | 503/504 timeouts |
 | **Error Pass-through** | Transparent upstream errors | Preserve original |
-| **Response Finalization** | Add headers, log, measure | N/A |
+| **Response Finalization** | Add headers, log completion | N/A |
 
 ### Performance Budget by Stage
 

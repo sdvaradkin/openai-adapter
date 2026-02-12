@@ -47,7 +47,7 @@ This epic completes the MVP by making the adapter feature-aware, ensuring it han
 3. [Story 6.3: Structured Outputs Translation](story-6.3.md)
 4. [Story 6.4: Function Calling Translation](story-6.4.md)
 5. [Story 6.5: Web Search Translation](story-6.5.md)
-6. [Story 6.6: Feature Compatibility Matrix & Documentation](story-6.6.md)
+6. [Story 6.6: Feature Compatibility Matrix & README Documentation](story-6.6.md) - **PoC: Simple README section instead of formal matrix**
 
 **Note:** Feature-specific validation logic is included within each feature's translation story (6.2-6.5).
 

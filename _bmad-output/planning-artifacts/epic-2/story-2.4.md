@@ -1,10 +1,22 @@
 # Story 2.4: Error Handling & Attribution
 
+**Status:** ⏸️ DEFERRED to Post-PoC Epic 7  
+**PoC Alternative:** Pass-through OpenAI errors unchanged; return basic adapter error responses without source field
+
 **Epic:** [Epic 2: Drop-in Proxy Compatibility](epic-2.md)
 
 **Pipeline Context:** This story implements **Stage 7a: Upstream Error** handling and error attribution throughout all pipeline stages from the [Request/Response Pipeline Architecture](../architecture.md#requestresponse-pipeline-architecture).
 
-## User Story
+## PoC Implementation (Deferred)
+
+This story is deferred from PoC. For PoC implementation, see [PoC-SCOPE-IMPACT-DOWNSTREAM-EPICS.md#epic-by-epic-impact--mitigation](../../../notes/POC-SCOPE-IMPACT-DOWNSTREAM-EPICS.md)
+
+**PoC Approach:** 
+- OpenAI error responses pass through unchanged (100% transparent)
+- Adapter-generated errors return basic response without `error.source` field
+- Error attribution will be added post-PoC as part of Epic 7
+
+## User Story (Post-PoC)
 
 **As a** DevOps engineer,  
 **I want** clear error responses that indicate the source of failures (adapter vs OpenAI vs storage),  

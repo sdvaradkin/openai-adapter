@@ -73,12 +73,15 @@ function loadTimeoutConfig(): TimeoutConfig {
   
   // Validation
   if (config.requestTimeout <= 0 || config.requestTimeout > 600) {
+    console.error(`Invalid UPSTREAM_TIMEOUT: ${config.requestTimeout}. Must be 1-600 seconds.`);
     throw new Error(`Invalid UPSTREAM_TIMEOUT: ${config.requestTimeout}. Must be 1-600 seconds.`);
   }
   if (config.streamTTFB <= 0 || config.streamTTFB > 600) {
+    console.error(`Invalid STREAM_TTFB_TIMEOUT: ${config.streamTTFB}. Must be 1-600 seconds.`);
     throw new Error(`Invalid STREAM_TTFB_TIMEOUT: ${config.streamTTFB}. Must be 1-600 seconds.`);
   }
   if (config.streamIdleTimeout <= 0 || config.streamIdleTimeout > 3600) {
+    console.error(`Invalid STREAM_IDLE_TIMEOUT: ${config.streamIdleTimeout}. Must be 1-3600 seconds.`);
     throw new Error(`Invalid STREAM_IDLE_TIMEOUT: ${config.streamIdleTimeout}. Must be 1-3600 seconds.`);
   }
   
@@ -103,20 +106,22 @@ async function makeUpstreamRequest(
       validateStatus: () => true // Accept all status codes
     });
     
-    logger.info({
+    console.log({
+      action: 'upstream_request_completed',
       requestId: request.id,
-      duration: Date.now() - startTime,
+      durationMs: Date.now() - startTime,
       statusCode: response.status
-    }, 'Upstream request completed');
+    });
     
     return response;
   } catch (error) {
     if (error.code === 'ECONNABORTED') {
-      logger.warn({
+      console.log({
+        action: 'upstream_timeout',
         requestId: request.id,
-        timeout: config.requestTimeout,
-        duration: Date.now() - startTime
-      }, 'Upstream timeout');
+        timeoutSeconds: config.requestTimeout,
+        durationMs: Date.now() - startTime
+      });
       
       throw new TimeoutError('upstream_timeout', config.requestTimeout);
     }
@@ -142,11 +147,12 @@ async function streamWithTimeouts(
   // TTFB timeout
   const ttfbTimer = setTimeout(() => {
     if (!firstByteReceived) {
-      logger.warn({
+      console.log({
+        action: 'streaming_ttfb_timeout',
         requestId: context.requestId,
-        timeout: config.streamTTFB,
-        duration: Date.now() - startTime
-      }, 'Streaming TTFB timeout');
+        timeoutSeconds: config.streamTTFB,
+        durationMs: Date.now() - startTime
+      });
       
       // Send 504 to client
       if (!reply.sent) {
@@ -172,12 +178,13 @@ async function streamWithTimeouts(
     if (idleTimer) clearTimeout(idleTimer);
     
     idleTimer = setTimeout(() => {
-      logger.warn({
+      console.log({
+        action: 'streaming_idle_timeout',
         requestId: context.requestId,
-        timeout: config.streamIdleTimeout,
-        lastEventAt: lastEventTime,
-        idleDuration: Date.now() - lastEventTime
-      }, 'Streaming idle timeout');
+        timeoutSeconds: config.streamIdleTimeout,
+        lastEventAtMs: lastEventTime,
+        idleDurationMs: Date.now() - lastEventTime
+      });
       
       // Close stream gracefully
       reply.raw.write(`data: ${JSON.stringify({ 
@@ -195,9 +202,10 @@ async function streamWithTimeouts(
       clearTimeout(ttfbTimer);
       
       const ttfb = Date.now() - startTime;
-      logger.info({
+      console.log({
+        action: 'streaming_first_byte_received',
         requestId: context.requestId,
-        ttfb
+        ttfbMs: ttfb
       }, 'First byte received');
       
       // Start idle timer after first byte

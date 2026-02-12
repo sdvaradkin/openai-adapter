@@ -8,6 +8,8 @@ interface EnvConfig {
   MODEL_API_MAPPING_FILE: string;
   UPSTREAM_TIMEOUT_SECONDS?: string;
   MAX_CONCURRENT_CONNECTIONS?: string;
+  MAX_REQUEST_SIZE_MB?: string;
+  MAX_JSON_DEPTH?: string;
 }
 
 const schema = {
@@ -26,6 +28,12 @@ const schema = {
       type: 'string'
     },
     MAX_CONCURRENT_CONNECTIONS: {
+      type: 'string'
+    },
+    MAX_REQUEST_SIZE_MB: {
+      type: 'string'
+    },
+    MAX_JSON_DEPTH: {
       type: 'string'
     }
   }
@@ -229,12 +237,31 @@ export async function loadConfiguration(): Promise<AdapterConfig> {
     1000,
     1
   );
+
+  // Parse request size limit (default 10MB)
+  const maxRequestSizeMB = parseIntegerEnvVar(
+    envConfig.MAX_REQUEST_SIZE_MB,
+    'MAX_REQUEST_SIZE_MB',
+    10,
+    1
+  );
+  const maxRequestSizeBytes = maxRequestSizeMB * 1024 * 1024;
+
+  // Parse JSON depth limit (default 100 levels)
+  const maxJsonDepth = parseIntegerEnvVar(
+    envConfig.MAX_JSON_DEPTH,
+    'MAX_JSON_DEPTH',
+    100,
+    1
+  );
   
   return {
     targetUrl: envConfig.ADAPTER_TARGET_URL,
     modelMappingFile: envConfig.MODEL_API_MAPPING_FILE,
     modelMapping,
     upstreamTimeoutSeconds,
-    maxConcurrentConnections
+    maxConcurrentConnections,
+    maxRequestSizeBytes,
+    maxJsonDepth
   };
 }

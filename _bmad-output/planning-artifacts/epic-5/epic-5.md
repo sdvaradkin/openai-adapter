@@ -99,6 +99,8 @@ interface TimeoutConfig {
 - Stream incrementally to client
 - Handle `[DONE]` sentinel correctly for both APIs
 
+**PoC Logging:** Use `console.log` for streaming events (structured logger deferred to post-PoC)
+
 ### 3. Timeout Implementation (Story 5.3)
 - Implement TTFB timer (starts on upstream request)
 - Implement idle timer (resets on each SSE event received)

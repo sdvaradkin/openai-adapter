@@ -1,10 +1,32 @@
 # Story 2.5: Structured Logging & Observability
 
+**Status:** ⏸️ DEFERRED to Post-PoC Epic 7  
+**PoC Alternative:** Use `console.log` with simple event objects (no Pino structured logger)
+
 **Epic:** [Epic 2: Drop-in Proxy Compatibility](epic-2.md)
 
 **Pipeline Context:** This story implements **Observability Integration** across all pipeline stages from the [Request/Response Pipeline Architecture](../architecture.md#requestresponse-pipeline-architecture).
 
-## User Story
+## PoC Implementation (Deferred)
+
+This story is deferred from PoC. For PoC implementation, see [PoC-SCOPE-IMPACT-DOWNSTREAM-EPICS.md#epic-by-epic-impact--mitigation](../../../notes/POC-SCOPE-IMPACT-DOWNSTREAM-EPICS.md)
+
+**PoC Approach:** Use Node.js `console.log()` for all logging. Pino structured logger will be implemented post-PoC as part of Epic 7.
+
+**PoC Logging Standard (all epics):**
+```typescript
+// Simple console.log with event objects
+console.log({
+  action: string,      // e.g., 'routing_decision', 'translation_start'
+  requestId?: string,  // Use request.id when available
+  model?: string,      // Model name
+  error?: string,      // Error message if applicable
+  direction?: string,  // 'chat_to_response' | 'response_to_chat'
+  statusCode?: number  // HTTP status (errors only)
+});
+```
+
+## User Story (Post-PoC)
 
 **As a** DevOps engineer,  
 **I want** structured JSON logs with consistent schema and correlation IDs,  

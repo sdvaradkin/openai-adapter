@@ -30,7 +30,7 @@
 3. ✅ **Timeout Monitoring (Basic)**
    - Track time-to-first-byte (TTFB) for streaming requests
    - Track idle time between SSE events
-   - Log timeout warnings (full enforcement in Story 5.3)
+   - Log timeout warnings with `console.log` (full enforcement in Story 5.3)
 
 4. ✅ **Error Handling**
    - Upstream connection errors pass through to client
@@ -38,8 +38,8 @@
    - Connection failures close client stream gracefully
 
 5. ✅ **Observability**
-   - Log streaming mode decision: `{streaming: true, mode: "pass-through"}`
-   - Log TTFB duration
+   - Log streaming mode decision with `console.log`: `{action: 'streaming_start', streaming: true, mode: "pass-through", requestId: request.id}`
+   - Log TTFB duration with `request.id` from Fastify (already available)
    - Log event count and completion status
    - Log timeout warnings
 
@@ -91,10 +91,11 @@ async function streamPassthrough(
   
   // Start TTFB timer
   const ttfbTimeout = setTimeout(() => {
-    logger.warn({ 
-      requestId: context.requestId,
+    console.log({ 
+      action: 'streaming_ttfb_timeout_warning',
+      requestId: request.id,  // Use request.id directly from Fastify
       duration: Date.now() - startTime 
-    }, 'Streaming TTFB timeout warning');
+    });
   }, config.streamTTFB);
   
   let idleTimeout: NodeJS.Timeout | null = null;
@@ -104,16 +105,17 @@ async function streamPassthrough(
     if (context.eventCount === 0) {
       clearTimeout(ttfbTimeout);
       const ttfb = Date.now() - startTime;
-      logger.info({ requestId: context.requestId, ttfb }, 'First byte received');
+      console.log({ action: 'streaming_first_byte_received', requestId: request.id, ttfbMs: ttfb });
     }
     
     // Reset idle timer
     if (idleTimeout) clearTimeout(idleTimeout);
     idleTimeout = setTimeout(() => {
-      logger.warn({ 
-        requestId: context.requestId,
-        lastEventAt: Date.now() - startTime 
-      }, 'Streaming idle timeout warning');
+      console.log({ 
+        action: 'streaming_idle_timeout_warning',
+        requestId: request.id,
+        lastEventAtMs: Date.now() - startTime 
+      });
     }, config.streamIdleTimeout);
     
     // Write chunk to client
@@ -125,11 +127,12 @@ async function streamPassthrough(
     clearTimeout(ttfbTimeout);
     if (idleTimeout) clearTimeout(idleTimeout);
     
-    logger.info({
-      requestId: context.requestId,
+    console.log({
+      action: 'streaming_completed',
+      requestId: request.id,
       eventCount: context.eventCount,
-      duration: Date.now() - startTime
-    }, 'Streaming completed');
+      durationMs: Date.now() - startTime
+    });
     
     reply.raw.end();
   });
@@ -138,11 +141,12 @@ async function streamPassthrough(
     clearTimeout(ttfbTimeout);
     if (idleTimeout) clearTimeout(idleTimeout);
     
-    logger.error({
-      requestId: context.requestId,
+    console.log({
+      action: 'upstream_streaming_error',
+      requestId: request.id,
       error: error.message,
       eventCount: context.eventCount
-    }, 'Upstream streaming error');
+    });
     
     reply.raw.end();
   });
@@ -154,11 +158,12 @@ async function streamPassthrough(
 ```typescript
 // In main request handler
 if (streamingContext.enabled && streamingContext.mode === 'pass-through') {
-  logger.info({ 
-    requestId,
+  console.log({ 
+    action: 'routing_decision',
+    requestId,  // Available from Fastify request.id
     streaming: true,
     mode: 'pass-through' 
-  }, 'Routing decision');
+  });
   
   const upstreamResponse = await makeUpstreamRequest(translatedRequest, {
     responseType: 'stream'

@@ -56,25 +56,26 @@
 
 ### Error Handling During Translation
 
+**PoC Note:** Structured error framework from Story 2.4 is deferred. Story 3.5 implements local error handling with try/catch blocks and `console.log`.
+
 **Given** request translation fails (invalid input, malformed data)  
 **When** the translation engine throws an error  
 **Then** the adapter returns 500 Internal Server Error  
-**And** the response includes `error_source: "adapter_error"`  
 **And** the response includes request ID  
-**And** the error is logged with stack trace
+**And** the error is logged with `console.log({ action: 'translation_error', error: err.message })`  
+**And** stack trace logged for debugging
 
 **Given** response translation fails (unexpected OpenAI response format)  
 **When** the response translation engine throws an error  
 **Then** the adapter returns 500 Internal Server Error  
-**And** the response includes `error_source: "adapter_error"`  
 **And** the response includes request ID and details about malformed response  
-**And** the error is logged with stack trace
+**And** the error is logged with `console.log({ action: 'response_translation_error', error: err.message })` with stack trace
 
 **Given** translation succeeds but OpenAI returns an error (4xx/5xx)  
 **When** processing the error response  
 **Then** the error is passed through unchanged to the client  
 **And** no response translation is attempted  
-**And** the error is logged with `error_source: "upstream_error"`
+**And** the error is logged with `console.log({ action: 'upstream_error', statusCode })`
 
 ### Pass-Through vs Translation Coordination
 
@@ -141,6 +142,36 @@
    - OpenAI error during translated request → pass-through unchanged
    - Malformed OpenAI response → 500 with details
 
+### PoC Logging Pattern (Console.log)
+
+**For PoC implementation, use simple console.log pattern across all stages:**
+
+```typescript
+// Translation start
+console.log({ 
+  action: 'translation_start', 
+  requestId: request.id, 
+  direction: 'chat_to_response', 
+  model: request.body.model 
+});
+
+// Translation complete
+console.log({ 
+  action: 'translation_complete', 
+  requestId: request.id, 
+  durationMs: endTime - startTime 
+});
+
+// Translation error (local try/catch)
+console.log({ 
+  action: 'translation_error', 
+  requestId: request.id, 
+  error: err.message 
+});
+```
+
+**Post-PoC:** Refactor these console.log calls to centralized Pino logger from Epic 7.
+
 ## Technical Notes
 
 **Pipeline Architecture Reference:**
@@ -186,8 +217,8 @@ See [architecture.md - Request/Response Pipeline Architecture](_bmad-output/plan
 **Dependencies:**
 - Requires Stories 3.1-3.4 (translation engines) to be complete
 - Requires Epic 2 Story 2.1 (routing logic) to be complete
-- Requires Epic 2 Story 2.3 (error handling framework) to be complete
-- Requires Epic 2 Story 2.4 (structured logging) to be complete
+- Stories 2.3 and 2.4 are deferred to post-PoC; implement local error handling in this story
+- Story 2.5 is deferred to post-PoC; use `console.log` for PoC logging
 
 **Testing Approach:**
 - Unit tests for integration logic (mocked translators)

@@ -1,8 +1,10 @@
-# generated: 2026-02-10
+# generated: 2026-02-12 (PoC Scope: Sprint Change Proposal - MVP to PoC Pivot)
 # project: openai-adapter
 # project_key: NOKEY
 # tracking_system: file-system
 # story_location: {project-root}/_bmad-output/implementation-artifacts
+# IMPORTANT: PoC scope descopes stories 2.3, 2.4, 2.5 (observability/logging deferred to post-PoC)
+# See: sprint-change-proposal-* for full impact analysis
 
 # STATUS DEFINITIONS:
 # ==================
@@ -46,15 +48,16 @@ development_status:
   1-3-production-health-and-readiness-endpoints: done
   1-4-timeout-and-concurrency-configuration: done
   epic-1-retrospective: optional
-  epic-2: backlog
-  2-1-http-routing-model-detection-pass-through: backlog
-  2-2-request-validation-safety-guards: backlog
-  2-3-request-id-management-duplicate-detection: backlog
-  2-4-error-handling-attribution: backlog
-  2-5-structured-logging-observability: backlog
+  epic-2: in-progress
+  2-1-http-routing-model-detection-pass-through: done
+  2-2-request-validation-safety-guards: in-progress
   epic-2-retrospective: optional
-  epic-3: backlog
-  3-1-chat-response-request-translation-foundation: backlog
+  # DESCOPED for PoC (moved to post-MVP observability epic):
+  # 2-3-request-id-management-duplicate-detection: DESCOPED (request ID already implemented)
+  # 2-4-error-handling-attribution: DESCOPED (error pass-through sufficient for PoC)
+  # 2-5-structured-logging-observability: DESCOPED (console logging sufficient for PoC)
+  epic-3: in-progress
+  3-1-chat-response-request-translation-foundation: ready-for-dev
   3-2-response-chat-response-translation: backlog
   3-3-response-chat-request-translation: backlog
   3-4-chat-response-response-translation: backlog

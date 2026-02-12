@@ -38,6 +38,8 @@
    - Store final conversation state after stream completes
    - Handle streaming errors without corrupting state
 
+**PoC Logging:** Use `console.log` with request.id from Fastify (structured logging deferred to post-PoC)
+
 5. ✅ **Error Handling**
    - Translation errors during streaming close stream with error event
    - Log translation failures with event index and request ID
@@ -181,18 +183,20 @@ async function streamChatToResponse(
           
           const translationDuration = Date.now() - translationStart;
           if (translationDuration > 5) {
-            logger.warn({ 
-              requestId: context.requestId,
+            console.log({ 
+              action: 'slow_streaming_translation_warning',
+              requestId: request.id,  // From Fastify
               eventIndex: context.eventCount,
-              duration: translationDuration 
-            }, 'Slow streaming translation');
+              durationMs: translationDuration 
+            });
           }
         } catch (error) {
-          logger.error({
-            requestId: context.requestId,
+          console.log({
+            action: 'streaming_translation_error',
+            requestId: request.id,  // From Fastify
             eventIndex: context.eventCount,
             error: error.message
-          }, 'Streaming translation error');
+          });
           
           reply.raw.write(`data: ${JSON.stringify({ error: 'Translation error' })}\n\n`);
           reply.raw.end();

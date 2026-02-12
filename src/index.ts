@@ -3,7 +3,10 @@ import { pathToFileURL } from 'node:url';
 import type { AdapterConfig } from './config/types.js';
 import { loadConfiguration } from './config/loader.js';
 import { getHealth, getReadiness } from './handlers/health.js';
+import { createRoutingHandler } from './handlers/routing.handler.js';
 import { setConfigValid, setConfigInvalid } from './config/state.js';
+import { formatValidationError } from './handlers/error-formatter.js';
+import { ValidationError, VALIDATION_ERROR_TYPES, isValidationError } from './types/validation-errors.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -34,13 +37,40 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
             level: 'info'
           };
 
-  const app = Fastify({ logger });
+  const app = Fastify({
+    logger,
+    bodyLimit: options.config?.maxRequestSizeBytes
+  });
 
   if (options.config) {
     app.decorate('config', options.config);
   }
 
-  // Track active connections for concurrency limiting
+  // Register error handler for validation errors
+  app.setErrorHandler((error, request, reply) => {
+    if (isValidationError(error)) {
+      return reply.status(400).send(formatValidationError(error, request.id));
+    }
+
+    if (
+      app.config &&
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'FST_ERR_CTP_BODY_TOO_LARGE'
+    ) {
+      const maxRequestSizeMB = Math.round(app.config.maxRequestSizeBytes / (1024 * 1024));
+      const validationError = new ValidationError(
+        VALIDATION_ERROR_TYPES.PAYLOAD_TOO_LARGE,
+        `Request payload exceeds maximum size of ${maxRequestSizeMB}MB`
+      );
+
+      return reply.status(400).send(formatValidationError(validationError, request.id));
+    }
+
+    // Let other errors be handled by default handler
+    throw error;
+  });
   let activeConnections = 0;
   const maxConnections = options.config?.maxConcurrentConnections ?? 1000;
 
@@ -88,6 +118,13 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   // Returns 200 if ready to accept traffic, 503 otherwise
   app.get('/ready', getReadiness);
 
+  // Register API endpoints with routing handler (if config is available)
+  if (app.config) {
+    const routingHandler = createRoutingHandler(app.config);
+    app.post('/v1/responses', routingHandler);
+    app.post('/v1/chat/completions', routingHandler);
+  }
+
   return app;
 }
 
@@ -102,7 +139,9 @@ export async function startServer(): Promise<void> {
       targetUrl: config.targetUrl,
       modelCount: Object.keys(config.modelMapping).length,
       upstreamTimeoutSeconds: config.upstreamTimeoutSeconds,
-      maxConcurrentConnections: config.maxConcurrentConnections
+      maxConcurrentConnections: config.maxConcurrentConnections,
+      maxRequestSizeBytes: config.maxRequestSizeBytes,
+      maxJsonDepth: config.maxJsonDepth
     }));
 
     // Set global config state to valid for readiness handler

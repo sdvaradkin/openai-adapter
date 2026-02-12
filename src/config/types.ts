@@ -8,4 +8,6 @@ export interface AdapterConfig {
   modelMapping: ModelMapping;
   upstreamTimeoutSeconds: number;
   maxConcurrentConnections: number;
+  maxRequestSizeBytes: number;
+  maxJsonDepth: number;
 }

@@ -10,7 +10,7 @@ This epic implements the core translation engine that enables bidirectional conv
 
 The translation layer is the technical foundation that enables the adapter's primary value proposition: allowing applications to switch between models using different API formats without code changes.
 
-**Note:** Story 3.5 integrates the translation engines (3.1-3.4) into the complete pipeline with routing, error handling, and observability.
+**Note:** Story 3.5 integrates the translation engines (3.1-3.4) into the complete pipeline with routing. For PoC, local error handling and console.log are used within Story 3.5 (structured error handling deferred to post-PoC Epic 7).
 
 ## Functional Requirements Covered
 

@@ -1,10 +1,19 @@
 # Story 2.3: Request ID Management & Duplicate Detection
 
+**Status:** ⏸️ DEFERRED to Post-PoC Epic 7  
+**PoC Alternative:** Use Fastify's `request.id` directly (no Redis dedup)
+
 **Epic:** [Epic 2: Drop-in Proxy Compatibility](epic-2.md)
 
 **Pipeline Context:** This story implements **Stage 1: Request Ingestion** (request ID generation) from the [Request/Response Pipeline Architecture](../architecture.md#requestresponse-pipeline-architecture).
 
-## User Story
+## PoC Implementation (Deferred)
+
+This story is deferred from PoC. For PoC implementation, see [PoC-SCOPE-IMPACT-DOWNSTREAM-EPICS.md#epic-by-epic-impact--mitigation](../../../notes/POC-SCOPE-IMPACT-DOWNSTREAM-EPICS.md)
+
+**PoC Approach:** Fastify provides `request.id` automatically via `@fastify/request-id` plugin. This is sufficient for PoC request tracking. Redis duplicate detection will be implemented post-PoC as part of Epic 7 (Observability & Performance Hardening).
+
+## User Story (Post-PoC)
 
 **As a** DevOps engineer,  
 **I want** every request to have a unique identifier for correlation and duplicate requests to be rejected,  

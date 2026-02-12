@@ -812,13 +812,50 @@ Performance matters for cost savings validation. If translation overhead elimina
 
 ## Non-Functional Requirements
 
+### ⚠️ PoC Scope Note
+
+**Strategy Pivot: MVP → PoC (Feb 12, 2026)**
+
+For the Proof-of-Concept phase, **performance and scalability targets are relaxed**. The focus shifts to demonstrating functional correctness of routing, translation, and state management. Post-PoC, a dedicated hardening epic will implement NFR targets.
+
+**PoC Strategy:**
+- ✅ Keep: Functional requirements (FR1-66 remain MVP scope)
+- ✅ Keep: Safety constraints (NFR-P6, P7, SEC3 - malformed input rejection)
+- ✅ Keep: Basic operations (Health/ready endpoints, startup validation)
+- ❌ Descope: Performance targets (NFR-P1, P2, P4 - no latency/throughput measurement required)
+- ❌ Descope: Scalability targets (NFR-S1, S2, S3, S4 - no memory/concurrency optimization)
+- ❌ Descope: Observability NFRs (NFR-M2, M3, M4 - console logging sufficient)
+- ❌ Descope: Advanced error handling (NFR-R2, R3 detailed error attribution)
+
+**PoC Success Criteria:**
+- Routing logic works correctly (model-based routing)
+- Pass-through mode works (same-format requests flow through)
+- Translation works (bidirectional, all MVP features)
+- State persists (multi-turn conversations)
+- Streaming works (SSE in both directions)
+- Features work (vision, functions, structured outputs)
+- Errors don't crash (basic error handling)
+- Configuration validation works (startup checks)
+
+**PoC Performance Expectations (No Targets):**
+- Pass-through may add 10-100ms (not measured)
+- Translation may take 50-200ms (not measured)
+- Memory usage may reach 300-500MB (not constrained)
+- Concurrency limited to single-digit concurrent requests (not tested)
+
+**Post-PoC Hardening Epic Plan:**
+After PoC demo, create new epic to implement all descoped NFRs with performance optimization, observability framework, and production-grade reliability.
+
+---
+
 ### Performance
 
-**NFR-P1: Translation Overhead**
-- **Requirement:** JSON transformation between API formats completes in <10ms for typical requests
+**NFR-P1: Translation Overhead (PoC Deferred)**
+- **Requirement (MVP):** JSON transformation between API formats completes in <10ms for typical requests
+- **PoC Status:** DESCOPED - No latency target; focus on correctness
 - **Rationale:** Translation overhead must not negate cost savings from using cheaper models
-- **Measurement:** Measure transformation time (request deserialization → mapping logic → response serialization) isolated from network I/O
-- **Success Criteria:** 95th percentile translation time <10ms for requests up to 100KB
+- **Measurement (Post-PoC):** Measure transformation time (request deserialization → mapping logic → response serialization) isolated from network I/O
+- **Success Criteria (Post-PoC):** 95th percentile translation time <10ms for requests up to 100KB
 
 **NFR-P2: Pass-Through Latency**
 - **Requirement:** Pass-through mode introduces <1ms additional latency beyond network overhead

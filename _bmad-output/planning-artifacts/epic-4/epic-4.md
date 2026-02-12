@@ -2,9 +2,9 @@
 
 **Parent Document:** [Epics Overview](../epics.md)
 
-## Epic Goal
+## Epic Goal (PoC)
 
-Enable Response API → Chat Completions translation for multi-turn conversations by maintaining conversation state in Redis, allowing Response API's single-message-per-turn pattern to work with Chat Completions' messages array format.
+Enable Response API → Chat Completions translation for multi-turn conversations by maintaining conversation state in Redis. For PoC, startup fails fast if Redis is unavailable (no graceful fallback). Graceful degradation will be implemented post-PoC.
 
 ## User Value
 
@@ -19,7 +19,7 @@ This epic enables **Response API → Chat Completions** translation for multi-tu
 1. **Redis Integration** - External state storage for horizontal scaling
 2. **Conversation State Management** - Store/retrieve conversation history with automatic expiration
 3. **Multi-turn Translation** - Build Chat Completions messages array from stored conversation state
-4. **Resilient Error Handling** - Graceful degradation when Redis unavailable
+4. **Resilient Error Handling (PoC: Fail-Fast)** - Startup fails fast if Redis unavailable; no fallback for PoC
 
 **Out of Scope:** Chat Completions → Response API is stateless (client provides full messages array) and is already covered in Epic 3.
 

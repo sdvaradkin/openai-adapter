@@ -31,14 +31,15 @@
 **Then** the adapter logs connection failure:
 ```json
 {
-  "level": "error",
   "action": "redis_connection_failed",
-  "error": "Connection refused",
-  "timestamp": "2026-02-09T10:00:00.000Z"
+  "error": "Connection refused"
 }
 ```
-**And** startup fails with exit code 1  
-**And** provides clear error message indicating Redis connectivity requirement
+(using console.error)
+
+**And** startup fails immediately with exit code 1  
+**And** provides clear error message: "Redis is required for PoC. Ensure REDIS_URL is configured and Redis is accessible."  
+**And** does NOT implement graceful fallback (deferred to post-PoC)
 
 ### Readiness Endpoint Enhancement
 
@@ -70,11 +71,11 @@
   },
   "error": {
     "type": "storage_unavailable",
-    "message": "Redis connection failed",
-    "source": "storage_error"
+    "message": "Redis connection failed"
   }
 }
 ```
+(no `source` field for PoC - deferred to post-PoC Story 2.4)
 
 **And** readiness check completes in <100ms (NFR-O2)
 
@@ -135,7 +136,7 @@ redis.on('connect', () => {
 });
 
 redis.on('error', (err) => {
-  logger.error({ action: 'redis_error', error: err.message });
+  console.error({ action: 'redis_error', error: err.message });
 });
 ```
 
@@ -182,6 +183,7 @@ if (isNaN(CONVERSATION_STATE_TTL) || CONVERSATION_STATE_TTL <= 0) {
 - Configuration validates `REDIS_URL` and `CONVERSATION_STATE_TTL`
 - Connection pooling enabled for concurrent operations
 - TLS support for secure Redis connections
+- No graceful fallback for Redis unavailability (fail fast for PoC)
 - Unit tests for configuration validation
 - Integration tests with real Redis (testcontainers)
 - Error scenarios tested (Redis down, network timeout)
