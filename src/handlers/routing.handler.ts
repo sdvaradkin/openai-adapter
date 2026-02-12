@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { Router } from '../routing/router.js';
 import { ModelMapper } from '../routing/model-mapper.js';
 import { createPassThroughHandler } from './pass-through.handler.js';
+import { handleChatToResponseTranslation } from './translation.handler.js';
 import type { AdapterConfig } from '../config/types.js';
 import { validateJsonDepth } from '../validation/json-depth-validator.js';
 import { isValidationError } from '../types/validation-errors.js';
@@ -59,22 +60,65 @@ export function createRoutingHandler(config: AdapterConfig) {
         // Forward to pass-through handler (reuse pre-created handler)
         return passThroughHandler(request, reply);
       } else {
-        // Translation required - not yet implemented (Epic 3)
-        request.log.warn({
-          action: 'translation_required',
-          endpoint,
-          model: routingResult.model,
-          source_format: routingResult.sourceFormat,
-          target_format: routingResult.targetFormat,
-          message: 'Translation not yet implemented'
-        });
+        // Translation required - invoke translation handler for Chat→Response
+        if (
+          routingResult.sourceFormat === 'chat_completions' &&
+          routingResult.targetFormat === 'response'
+        ) {
+          // Perform translation
+          const translationResult = handleChatToResponseTranslation(
+            request.log,
+            request.id,
+            request.body
+          );
 
-        return reply.code(501).send({
-          error: 'Not Implemented',
-          message: 'Translation not yet implemented (Epic 3)',
-          sourceFormat: routingResult.sourceFormat,
-          targetFormat: routingResult.targetFormat
-        });
+          if (!translationResult.success) {
+            request.log.warn({
+              action: 'translation_failed',
+              endpoint,
+              model: routingResult.model,
+              error: translationResult.error
+            });
+
+            return reply.code(400).send({
+              error: 'Translation Error',
+              message: translationResult.error,
+              requestId: request.id
+            });
+          }
+
+          // Create a modified request with the translated payload
+          const translatedRequest = {
+            ...request,
+            body: translationResult.translated
+          };
+
+          // Forward translated request to pass-through handler
+          request.log.debug({
+            action: 'translation_completed',
+            endpoint,
+            model: routingResult.model
+          });
+
+          // Forward to pass-through with translated body
+          return passThroughHandler(translatedRequest, reply);
+        } else {
+          // Other translation directions not yet implemented
+          request.log.warn({
+            action: 'translation_not_implemented',
+            endpoint,
+            source: routingResult.sourceFormat,
+            target: routingResult.targetFormat,
+            message: `Translation from ${routingResult.sourceFormat} to ${routingResult.targetFormat} not yet implemented`
+          });
+
+          return reply.code(501).send({
+            error: 'Not Implemented',
+            message: `Translation from ${routingResult.sourceFormat} to ${routingResult.targetFormat} not yet implemented`,
+            sourceFormat: routingResult.sourceFormat,
+            targetFormat: routingResult.targetFormat
+          });
+        }
       }
     } catch (error) {
       // Handle validation/routing errors

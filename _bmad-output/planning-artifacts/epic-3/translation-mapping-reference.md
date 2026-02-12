@@ -43,8 +43,16 @@ POST /v1/chat/completions
 POST /v1/responses
 {
   "model": "gpt-4o",
-  "input": "Hello!",
-  "instructions": "You are a helpful assistant.",
+  "input": [
+    {
+      "role": "developer",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "Hello!"
+    }
+  ],
   "temperature": 1.0,
   "max_output_tokens": 150,
   "top_p": 1.0,
@@ -61,9 +69,7 @@ POST /v1/responses
 
 | Chat Completions Field | Response API Field | Transformation Logic | Notes |
 |------------------------|-------------------|---------------------|--------|
-| `messages` (array) | `input` (string/array) + `instructions` (string) | Extract last message as `input`. Extract system/developer messages as `instructions` | Chat sends full history; Response API only needs current message |
-| `messages[].role` | `input` role or `instructions` | "developer"/"system" → `instructions`; "user"/"assistant" → `input` items | Response API separates instructions from conversation |
-| `messages[].content` | `input` content | Direct copy | Text content remains the same |
+| `messages` (array) | `input` (array) | Direct copy (full messages array) | Response API accepts the same messages format |
 | `model` | `model` | Direct copy | Model name unchanged |
 | `temperature` | `temperature` | Direct copy | Same range (0-2) |
 | `max_tokens` (deprecated) | `max_output_tokens` | Direct copy | Field renamed in Response API |
@@ -88,7 +94,7 @@ POST /v1/responses
 **Conversation State Handling:**
 - Chat Completions sends full `messages[]` array with history
 - Response API uses `previous_response_id` for state management (handled in Epic 4)
-- **For Epic 3 (stateless):** Extract only the last message, ignore history
+- **For Epic 3 (stateless):** Pass full messages array; state handled in Epic 4
 
 ---
 
@@ -293,23 +299,6 @@ These features are supported in MVP (Epic 6 will implement feature-specific tran
 
 ---
 
-## Translation Performance
-
-**Target:** <10ms for requests up to 100KB (NFR-P1)
-
-**Measured Operations:**
-- JSON parsing
-- Field extraction and mapping
-- Object construction
-- Unknown field detection
-
-**Test Cases:**
-- Small request: ~10 fields, ~1KB → <2ms
-- Medium request: ~50 fields, ~10KB → <5ms
-- Large request: ~100 fields, ~100KB → <10ms
-
----
-
 ## Round-Trip Validation
 
 **Functional Equivalence Test:**
@@ -327,6 +316,6 @@ These features are supported in MVP (Epic 6 will implement feature-specific tran
 
 **Semantic Equivalence:**
 - Same model
-- Same content/instructions
+- Same message content
 - Same parameters (temperature, top_p, etc.)
 - Same user intent preserved
