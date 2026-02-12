@@ -115,7 +115,7 @@ export function createPassThroughHandler(
             message: error.message, 
             name: error.name, 
             code: (error as NodeJS.ErrnoException)?.code,
-            cause: (error as any)?.cause,
+            cause: (error as Error & { cause?: unknown })?.cause,
             stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
           }
         : { error: String(error) };

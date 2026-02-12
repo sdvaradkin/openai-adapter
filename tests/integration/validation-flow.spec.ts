@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import Fastify from 'fastify';
 import { buildServer } from '../../src/index.js';
 import { createRoutingHandler } from '../../src/handlers/routing.handler.js';
-import { ModelMapper } from '../../src/routing/model-mapper.js';
 import type { AdapterConfig } from '../../src/config/types.js';
 
 describe('Validation Integration - Full Flow', () => {

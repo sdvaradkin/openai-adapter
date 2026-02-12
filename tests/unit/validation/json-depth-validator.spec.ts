@@ -317,6 +317,7 @@ describe('validateJsonDepth', () => {
 
   describe('Edge cases', () => {
     it('should handle deeply nested arrays with sparse elements', () => {
+      // eslint-disable-next-line no-sparse-arrays
       const arr = [, , { a: { b: { c: { d: 'deep' } } } }, ,] as unknown[];
       expect(() => validateJsonDepth(arr, MAX_DEPTH)).not.toThrow();
     });
