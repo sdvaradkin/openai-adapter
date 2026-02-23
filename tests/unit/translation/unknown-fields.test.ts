@@ -32,18 +32,6 @@ describe('Unknown Fields Utility', () => {
       expect(result.unknownFields).not.toContain('temperature');
     });
 
-    it('should pass through all fields in cleaned payload', () => {
-      const payload = {
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: 'Hello' }],
-        custom_field: 'value'
-      };
-
-      const result = detectUnknownChatFields(payload);
-
-      expect(result.cleanedPayload).toEqual(payload);
-    });
-
     it('should handle empty unknown fields', () => {
       const payload = {
         model: 'gpt-4',

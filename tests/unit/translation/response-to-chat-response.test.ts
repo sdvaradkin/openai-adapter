@@ -95,7 +95,9 @@ describe('translateResponseApiToChatResponse', () => {
   });
 
   it('should omit usage when not present in source', () => {
-    const { usage: _usage, ...responseWithoutUsage } = validResponse as Record<string, unknown>;
+    const responseWithoutUsage = Object.fromEntries(
+      Object.entries(validResponse as Record<string, unknown>).filter(([k]) => k !== 'usage')
+    );
     const result = translateResponseApiToChatResponse(responseWithoutUsage);
     expect(result.translated?.usage).toBeUndefined();
   });

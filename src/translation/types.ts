@@ -1,61 +1,34 @@
 /**
  * Translation types and interfaces
+ *
+ * Canonical type definitions shared across all translation directions.
  */
 
-/**
- * Supported translation directions
- */
-export type TranslationDirection = 
-  | 'chat_to_response'
-  | 'response_to_chat'
-  | 'chat_to_response_response'
-  | 'response_to_chat_response';
+// ---------------------------------------------------------------------------
+// Base translation result
+// ---------------------------------------------------------------------------
 
 /**
- * Translation mode indicates whether we're translating or passing through
+ * Every translation function returns at least these fields.
  */
-export type TranslationMode = 'translate' | 'pass_through';
-
-/**
- * Result of unknown field detection
- */
-export interface UnknownFieldsResult {
-  unknownFields: string[];
-  cleanedPayload: Record<string, unknown>;
-}
-
-/**
- * Structured translation log entry
- */
-export interface TranslationLogEntry {
-  requestId: string;
-  translationDirection: TranslationDirection;
-  mode: TranslationMode;
-  unknownFields: string[];
-  timestamp: string;
+export interface TranslationResult<T> {
   success: boolean;
+  translated?: T;
   error?: string;
 }
 
-/**
- * Round-trip test result
- */
-export interface RoundTripTestResult {
-  success: boolean;
-  original: unknown;
-  translated: unknown;
-  backTranslated: unknown;
-  differences: string[];
-  semanticEquivalence: {
-    model: boolean;
-    content: boolean;
-    parameters: boolean;
-  };
+// ---------------------------------------------------------------------------
+// Unknown field detection
+// ---------------------------------------------------------------------------
+
+export interface UnknownFieldsResult {
+  unknownFields: string[];
 }
 
-/**
- * Chat Completions request format
- */
+// ---------------------------------------------------------------------------
+// Chat Completions API types
+// ---------------------------------------------------------------------------
+
 export interface ChatCompletionsRequest {
   model: string;
   messages: Array<{
@@ -76,9 +49,31 @@ export interface ChatCompletionsRequest {
   [key: string]: unknown;
 }
 
-/**
- * Response API request format
- */
+export interface ChatCompletionsChoice {
+  index: number;
+  message: {
+    role: string;
+    content: string | null;
+  };
+  finish_reason: string | null;
+}
+
+export interface ChatCompletionsResponse {
+  id: string;
+  object: string;
+  model: string;
+  choices: ChatCompletionsChoice[];
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Response API types
+// ---------------------------------------------------------------------------
+
 export interface ResponseApiRequest {
   model: string;
   input?: string | Array<Record<string, unknown>>;
@@ -96,12 +91,30 @@ export interface ResponseApiRequest {
   [key: string]: unknown;
 }
 
-/**
- * Translation context with metadata
- */
-export interface TranslationContext {
-  requestId: string;
-  direction: TranslationDirection;
-  mode: TranslationMode;
-  startTimeNs: bigint;
+export interface ResponseApiContentItem {
+  type: string;
+  text: string;
+  annotations: unknown[];
+}
+
+export interface ResponseApiOutputItem {
+  type: string;
+  id?: string;
+  role?: string;
+  status?: string;
+  content?: ResponseApiContentItem[];
+}
+
+export interface ResponseApiFullResponse {
+  id: string;
+  object: string;
+  model: string;
+  output: ResponseApiOutputItem[];
+  stop_reason: string;
+  status: string;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
 }

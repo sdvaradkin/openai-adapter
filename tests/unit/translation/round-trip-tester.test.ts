@@ -7,7 +7,7 @@ import {
   testChatToResponseRoundTrip,
   testResponseToChatRoundTrip,
   formatRoundTripResult
-} from '../../../src/translation/utils/round-trip-tester.js';
+} from '../../helpers/round-trip-tester.js';
 
 describe('Round-Trip Tester Utility', () => {
   describe('testChatToResponseRoundTrip', () => {

@@ -1,24 +1,18 @@
 /**
- * Chat Completions → Response API translation types
+ * Chat Completions -> Response API translation types
  */
 
-import type { ResponseApiRequest } from '../types.js';
+import type { TranslationResult, ResponseApiRequest, ResponseApiFullResponse } from '../types.js';
 
 /**
- * Result of Chat → Response translation
+ * Result of Chat -> Response request translation
  */
-export interface ChatToResponseTranslationResult {
-  success: boolean;
-  translated?: ResponseApiRequest;
-  error?: string;
+export interface ChatToResponseTranslationResult extends TranslationResult<ResponseApiRequest> {
   unknownFields: string[];
   multi_turn_detected: boolean;
 }
 
 /**
- * Options for Chat → Response translation
+ * Result of Chat -> Response API response translation
  */
-export interface ChatToResponseTranslationOptions {
-  requestId: string;
-  strict?: boolean; // If true, fail on unknown fields instead of passing through
-}
+export interface ChatToResponseApiTranslationResult extends TranslationResult<ResponseApiFullResponse> {}

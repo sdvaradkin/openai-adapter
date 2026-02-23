@@ -2,32 +2,26 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { Router } from '../routing/router.js';
 import { ModelMapper } from '../routing/model-mapper.js';
 import { createPassThroughHandler } from './pass-through.handler.js';
-import { handleChatToResponseTranslation } from './translation.handler.js';
-import { translateResponseApiToChatResponse } from '../translation/index.js';
+import { translateChatToResponse } from '../translation/chat-to-response/request.js';
+import { translateResponseApiToChatResponse } from '../translation/response-to-chat/response.js';
 import type { AdapterConfig } from '../config/types.js';
 import { validateJsonDepth } from '../validation/json-depth-validator.js';
 import { isValidationError } from '../types/validation-errors.js';
 import { formatValidationError } from './error-formatter.js';
-
-/**
- * Routing handler - determines whether to use pass-through or translation
- * Entry point for both /v1/responses and /v1/chat/completions endpoints
- */
+import { buildUpstreamUrl, forwardHeaders, proxyToUpstream, sendProxyResponse } from './upstream-proxy.js';
 
 export function createRoutingHandler(config: AdapterConfig) {
   const modelMapper = new ModelMapper(config.modelMapping);
   const router = new Router(modelMapper);
 
-  // Create pass-through handlers once for reuse
   const responsesHandler = createPassThroughHandler('responses', { config });
   const chatCompletionsHandler = createPassThroughHandler('chat/completions', { config });
 
   return async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      // Step 1: Validate JSON depth (must happen after JSON parsing, before routing)
       validateJsonDepth(request.body, config.maxJsonDepth);
 
-      // Determine endpoint from path
+      // Determine endpoint
       let endpoint: string;
       let passThroughHandler: ReturnType<typeof createPassThroughHandler>;
 
@@ -38,13 +32,10 @@ export function createRoutingHandler(config: AdapterConfig) {
         endpoint = 'chat/completions';
         passThroughHandler = chatCompletionsHandler;
       } else {
-        return reply.code(404).send({
-          error: 'Not Found',
-          message: 'Unknown endpoint'
-        });
+        return reply.code(404).send({ error: 'Not Found', message: 'Unknown endpoint' });
       }
 
-      // Step 2: Make routing decision (includes model validation)
+      // Routing decision
       const routingResult = router.routingDecision(request.url, request.body);
 
       request.log.info({
@@ -56,176 +47,34 @@ export function createRoutingHandler(config: AdapterConfig) {
         decision: routingResult.decision
       });
 
-      // Route based on decision
       if (routingResult.decision === 'pass-through') {
-        // Forward to pass-through handler (reuse pre-created handler)
         return passThroughHandler(request, reply);
-      } else {
-        // Translation required - invoke translation handler for Chat→Response
-        if (
-          routingResult.sourceFormat === 'chat_completions' &&
-          routingResult.targetFormat === 'response'
-        ) {
-          // Perform request translation (Chat → Responses API)
-          const chatTranslationResult = handleChatToResponseTranslation(
-            request.log,
-            request.id,
-            request.body
-          );
-
-          if (!chatTranslationResult.success) {
-            request.log.warn({
-              action: 'translation_failed',
-              endpoint,
-              model: routingResult.model,
-              error: chatTranslationResult.error
-            });
-
-            return reply.code(400).send({
-              error: 'Translation Error',
-              message: chatTranslationResult.error,
-              requestId: request.id
-            });
-          }
-
-          request.log.debug({
-            action: 'translation_completed',
-            endpoint,
-            model: routingResult.model
-          });
-
-          // Build upstream URL for Responses API endpoint
-          const upstreamUrl = `${config.targetUrl.replace(/\/$/, '')}/v1/responses`;
-
-          // Forward headers (skip host, content-length, transfer-encoding)
-          const forwardedHeaders = new Headers();
-          for (const [key, value] of Object.entries(request.headers)) {
-            if (key.toLowerCase() === 'host') continue;
-            if (key.toLowerCase() === 'content-length') continue;
-            if (key.toLowerCase() === 'transfer-encoding') continue;
-            if (typeof value === 'string') {
-              forwardedHeaders.set(key, value);
-            }
-          }
-
-          // Create abort signal with timeout
-          const timeoutMs = config.upstreamTimeoutSeconds * 1000;
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-          try {
-            // Fetch upstream Responses API with translated body
-            const upstreamResponse = await fetch(upstreamUrl, {
-              method: 'POST',
-              headers: forwardedHeaders,
-              body: JSON.stringify(chatTranslationResult.translated),
-              signal: controller.signal
-            });
-
-            request.log.info({
-              action: 'upstream_request',
-              endpoint: 'responses',
-              model: routingResult.model,
-              status: upstreamResponse.status
-            });
-
-            // Read upstream response body
-            let responseText: string;
-            try {
-              responseText = await upstreamResponse.text();
-            } catch (readError) {
-              request.log.error({
-                action: 'response_body_read_error',
-                error: readError instanceof Error ? readError.message : String(readError)
-              });
-              return reply.code(502).send({
-                error: 'Bad Gateway',
-                message: 'Failed to read upstream response'
-              });
-            }
-
-            // Parse upstream response body
-            let parsedBody: unknown;
-            try {
-              parsedBody = JSON.parse(responseText);
-            } catch {
-              request.log.warn({
-                action: 'response_parse_failed',
-                endpoint,
-                model: routingResult.model,
-                status: upstreamResponse.status
-              });
-              return reply.code(502).send({
-                error: 'Bad Gateway',
-                message: 'Upstream returned non-JSON response'
-              });
-            }
-
-            // Translate Responses API response → Chat Completions response
-            let responseToChatResult: ReturnType<typeof translateResponseApiToChatResponse>;
-            try {
-              responseToChatResult = translateResponseApiToChatResponse(parsedBody);
-            } catch (translateError) {
-              request.log.warn({
-                action: 'response_translation_failed',
-                endpoint,
-                model: routingResult.model,
-                error: translateError instanceof Error ? translateError.message : String(translateError)
-              });
-              return reply.code(502).send({
-                error: 'Bad Gateway',
-                message: 'Failed to translate upstream response'
-              });
-            }
-
-            if (!responseToChatResult.success) {
-              request.log.warn({
-                action: 'response_translation_failed',
-                endpoint,
-                model: routingResult.model,
-                error: responseToChatResult.error
-              });
-              return reply.code(502).send({
-                error: 'Bad Gateway',
-                message: 'Failed to translate upstream response'
-              });
-            }
-
-            // Forward upstream response headers to client
-            upstreamResponse.headers.forEach((value, key) => {
-              reply.header(key, value);
-            });
-
-            // Return translated Chat Completions response
-            return reply
-              .code(upstreamResponse.status)
-              .type('application/json')
-              .send(JSON.stringify(responseToChatResult.translated));
-
-          } finally {
-            clearTimeout(timeoutId);
-          }
-
-        } else {
-          // Other translation directions not yet implemented
-          request.log.warn({
-            action: 'translation_not_implemented',
-            endpoint,
-            source: routingResult.sourceFormat,
-            target: routingResult.targetFormat,
-            message: `Translation from ${routingResult.sourceFormat} to ${routingResult.targetFormat} not yet implemented`
-          });
-
-          return reply.code(501).send({
-            error: 'Not Implemented',
-            message: `Translation from ${routingResult.sourceFormat} to ${routingResult.targetFormat} not yet implemented`,
-            sourceFormat: routingResult.sourceFormat,
-            targetFormat: routingResult.targetFormat
-          });
-        }
       }
+
+      // Translation required
+      if (
+        routingResult.sourceFormat === 'chat_completions' &&
+        routingResult.targetFormat === 'response'
+      ) {
+        await handleChatToResponseFlow(request, reply, config, routingResult, endpoint);
+        return;
+      }
+
+      // Other translation directions not yet implemented
+      request.log.warn({
+        action: 'translation_not_implemented',
+        endpoint,
+        source: routingResult.sourceFormat,
+        target: routingResult.targetFormat
+      });
+
+      return reply.code(501).send({
+        error: 'Not Implemented',
+        message: `Translation from ${routingResult.sourceFormat} to ${routingResult.targetFormat} not yet implemented`,
+        sourceFormat: routingResult.sourceFormat,
+        targetFormat: routingResult.targetFormat
+      });
     } catch (error) {
-      // Handle timeout (AbortError from fetch)
       if (error instanceof Error && error.name === 'AbortError') {
         request.log.error({
           action: 'upstream_timeout',
@@ -237,26 +86,136 @@ export function createRoutingHandler(config: AdapterConfig) {
         });
       }
 
-      // Handle validation/routing errors
       request.log.error({
         action: 'routing_error',
         error: error instanceof Error ? error.message : String(error)
       });
 
-      // Handle ValidationError with standardized error format
       if (isValidationError(error)) {
-        const errorResponse = formatValidationError(error, request.id);
-        return reply.code(400).send(errorResponse);
+        return reply.code(400).send(formatValidationError(error, request.id));
       }
-
-      // Handle other errors
-      const errorMessage = error instanceof Error ? error.message : String(error);
 
       return reply.code(400).send({
         error: 'Bad Request',
-        message: errorMessage,
+        message: error instanceof Error ? error.message : String(error),
         requestId: request.id
       });
     }
   };
+}
+
+/**
+ * Handle the Chat Completions -> Response API translation flow:
+ * 1. Translate request
+ * 2. Proxy to upstream Responses API
+ * 3. Translate response back to Chat Completions format
+ */
+async function handleChatToResponseFlow(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  config: AdapterConfig,
+  routingResult: { model: string },
+  endpoint: string
+): Promise<void> {
+  // 1. Translate request
+  const translationResult = translateChatToResponse(request.body);
+
+  if (!translationResult.success) {
+    request.log.warn({
+      action: 'translation_failed',
+      endpoint,
+      model: routingResult.model,
+      error: translationResult.error
+    });
+    reply.code(400).send({
+      error: 'Translation Error',
+      message: translationResult.error,
+      requestId: request.id
+    });
+    return;
+  }
+
+  if (translationResult.unknownFields.length > 0) {
+    request.log.debug({
+      action: 'unknown_fields_detected',
+      requestId: request.id,
+      direction: 'chat_to_response',
+      count: translationResult.unknownFields.length,
+      fields: translationResult.unknownFields
+    });
+  }
+
+  if (translationResult.multi_turn_detected) {
+    request.log.info({
+      action: 'multi_turn_conversation_detected',
+      requestId: request.id,
+      direction: 'chat_to_response'
+    });
+  }
+
+  request.log.debug({
+    action: 'translation_completed',
+    endpoint,
+    model: routingResult.model
+  });
+
+  // 2. Proxy to upstream
+  const timeoutMs = config.upstreamTimeoutSeconds * 1000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const upstream = await proxyToUpstream({
+      url: buildUpstreamUrl(config.targetUrl, 'responses'),
+      method: 'POST',
+      headers: forwardHeaders(request.headers),
+      body: JSON.stringify(translationResult.translated),
+      signal: controller.signal
+    });
+
+    request.log.info({
+      action: 'upstream_request',
+      endpoint: 'responses',
+      model: routingResult.model,
+      status: upstream.status
+    });
+
+    // 3. Parse and translate response
+    let parsedBody: unknown;
+    try {
+      parsedBody = JSON.parse(upstream.body);
+    } catch {
+      request.log.warn({
+        action: 'response_parse_failed',
+        endpoint,
+        model: routingResult.model,
+        status: upstream.status
+      });
+      reply.code(502).send({
+        error: 'Bad Gateway',
+        message: 'Upstream returned non-JSON response'
+      });
+      return;
+    }
+
+    const responseToChatResult = translateResponseApiToChatResponse(parsedBody);
+
+    if (!responseToChatResult.success) {
+      request.log.warn({
+        action: 'response_translation_failed',
+        endpoint,
+        model: routingResult.model,
+        error: responseToChatResult.error
+      });
+      reply.code(502).send({
+        error: 'Bad Gateway',
+        message: 'Failed to translate upstream response'
+      });
+      return;
+    }
+
+    sendProxyResponse(reply, upstream, JSON.stringify(responseToChatResult.translated));
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

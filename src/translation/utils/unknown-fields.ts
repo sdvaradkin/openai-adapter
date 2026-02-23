@@ -5,9 +5,6 @@
 
 import type { UnknownFieldsResult } from '../types.js';
 
-/**
- * Known Chat Completions API fields
- */
 const KNOWN_CHAT_FIELDS = new Set([
   'model',
   'messages',
@@ -28,9 +25,6 @@ const KNOWN_CHAT_FIELDS = new Set([
   'top_logprobs'
 ]);
 
-/**
- * Known Response API fields
- */
 const KNOWN_RESPONSE_FIELDS = new Set([
   'model',
   'input',
@@ -60,118 +54,86 @@ const DROPPED_FIELDS = new Set([
 ]);
 
 /**
- * Detect unknown fields in Chat Completions request
- * Unknown fields are passed through for forward compatibility
- * @param payload The Chat Completions request payload
- * @returns Object with unknown field names and cleaned payload
+ * Detect unknown fields in Chat Completions request.
+ * Unknown fields are passed through for forward compatibility.
  */
 export function detectUnknownChatFields(
   payload: Record<string, unknown>
 ): UnknownFieldsResult {
   const unknownFields: string[] = [];
-  const cleanedPayload: Record<string, unknown> = {};
 
-  for (const [key, value] of Object.entries(payload)) {
+  for (const key of Object.keys(payload)) {
     if (!KNOWN_CHAT_FIELDS.has(key)) {
-      // This is an unknown field - pass it through
       unknownFields.push(key);
     }
-    cleanedPayload[key] = value;
   }
 
-  return { unknownFields, cleanedPayload };
+  return { unknownFields };
 }
 
 /**
- * Detect unknown fields in Response API request
- * @param payload The Response API request payload
- * @returns Object with unknown field names and cleaned payload
+ * Detect unknown fields in Response API request.
  */
 export function detectUnknownResponseFields(
   payload: Record<string, unknown>
 ): UnknownFieldsResult {
   const unknownFields: string[] = [];
-  const cleanedPayload: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(payload)) {
     if (key === 'text' && typeof value === 'object' && value !== null) {
-      // Handle nested text object fields
       const textObj = value as Record<string, unknown>;
       const unknownTextFields = Object.keys(textObj).filter(
         (textKey) => !['format'].includes(textKey)
       );
-      if (unknownTextFields.length > 0) {
-        unknownTextFields.forEach((field) => {
-          unknownFields.push(`text.${field}`);
-        });
+      for (const field of unknownTextFields) {
+        unknownFields.push(`text.${field}`);
       }
     } else if (!KNOWN_RESPONSE_FIELDS.has(key)) {
-      // This is an unknown field - pass it through
       unknownFields.push(key);
     }
-    cleanedPayload[key] = value;
   }
 
-  return { unknownFields, cleanedPayload };
+  return { unknownFields };
 }
 
 /**
- * Check if a field should be dropped during translation
- * @param fieldName The field name to check
- * @returns true if field should be dropped (not translated, not passed through)
+ * Check if a field should be dropped during Chat->Response translation
  */
 export function isDroppedField(fieldName: string): boolean {
   return DROPPED_FIELDS.has(fieldName);
 }
 
-/**
- * Get list of all known Chat Completions fields
- */
 export function getKnownChatFields(): string[] {
   return Array.from(KNOWN_CHAT_FIELDS);
 }
 
-/**
- * Get list of all known Response API fields
- */
 export function getKnownResponseFields(): string[] {
   return Array.from(KNOWN_RESPONSE_FIELDS);
 }
 
-/**
- * Get list of dropped fields
- */
 export function getDroppedFields(): string[] {
   return Array.from(DROPPED_FIELDS);
 }
 
 /**
  * Fields that are Responses API-only with no Chat Completions equivalent.
- * These are dropped (not forwarded) during Response→Chat request translation.
+ * Dropped during Response->Chat request translation.
  */
 const DROPPED_RESPONSE_FIELDS = new Set([
-  'previous_response_id', // Stateful history — no Chat Completions equivalent (Phase 3 concern)
-  'store',                // Response storage — no Chat Completions equivalent
-  'reasoning',            // Reasoning models only — no Chat Completions equivalent
-  'reasoning_effort',     // Reasoning models only — no Chat Completions equivalent
-  'background',           // Async mode — no Chat Completions equivalent
-  'truncation',           // Responses API-specific truncation control
-  'include',              // Responses API-specific include hints
-  'user',                 // User tracking — no Chat Completions equivalent
+  'previous_response_id',
+  'store',
+  'reasoning',
+  'reasoning_effort',
+  'background',
+  'truncation',
+  'include',
+  'user',
 ]);
 
-/**
- * Check if a Responses API field should be dropped during Response→Chat translation
- * @param fieldName The field name to check
- * @returns true if field should be dropped and not forwarded to Chat Completions
- */
 export function isDroppedResponseField(fieldName: string): boolean {
   return DROPPED_RESPONSE_FIELDS.has(fieldName);
 }
 
-/**
- * Get list of all dropped Responses API-only fields
- */
 export function getDroppedResponseFields(): string[] {
   return Array.from(DROPPED_RESPONSE_FIELDS);
 }

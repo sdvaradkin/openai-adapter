@@ -20,7 +20,7 @@ describe('Chat to Response Translation', () => {
         max_tokens: 100
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated).toBeDefined();
@@ -41,7 +41,7 @@ describe('Chat to Response Translation', () => {
         ]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated?.input).toEqual([
@@ -61,7 +61,7 @@ describe('Chat to Response Translation', () => {
         ]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated?.input).toEqual([
@@ -78,7 +78,7 @@ describe('Chat to Response Translation', () => {
         ]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated?.input).toEqual([{ role: 'user', content: 'Hello' }]);
@@ -92,7 +92,7 @@ describe('Chat to Response Translation', () => {
         ]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated?.input).toEqual([{ role: 'system', content: 'Be helpful' }]);
@@ -107,7 +107,7 @@ describe('Chat to Response Translation', () => {
         ]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated?.input).toEqual([
@@ -125,7 +125,7 @@ describe('Chat to Response Translation', () => {
         temperature: 0.5
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.temperature).toBe(0.5);
     });
@@ -137,7 +137,7 @@ describe('Chat to Response Translation', () => {
         max_tokens: 200
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.max_output_tokens).toBe(200);
     });
@@ -149,7 +149,7 @@ describe('Chat to Response Translation', () => {
         max_completion_tokens: 200
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.max_output_tokens).toBe(200);
     });
@@ -161,7 +161,7 @@ describe('Chat to Response Translation', () => {
         top_p: 0.9
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.top_p).toBe(0.9);
     });
@@ -173,7 +173,7 @@ describe('Chat to Response Translation', () => {
         stream: true
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.stream).toBe(true);
     });
@@ -189,7 +189,7 @@ describe('Chat to Response Translation', () => {
         tools
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.tools).toEqual(tools);
     });
@@ -201,7 +201,7 @@ describe('Chat to Response Translation', () => {
         tool_choice: 'auto'
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.tool_choice).toBe('auto');
     });
@@ -213,7 +213,7 @@ describe('Chat to Response Translation', () => {
         response_format: { type: 'json_object' }
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.text?.format).toBe('json_object');
     });
@@ -227,7 +227,7 @@ describe('Chat to Response Translation', () => {
         metadata
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.metadata).toEqual(metadata);
     });
@@ -241,7 +241,7 @@ describe('Chat to Response Translation', () => {
         frequency_penalty: 0.5
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.frequency_penalty).toBeUndefined();
     });
@@ -253,7 +253,7 @@ describe('Chat to Response Translation', () => {
         presence_penalty: 0.5
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.presence_penalty).toBeUndefined();
     });
@@ -265,7 +265,7 @@ describe('Chat to Response Translation', () => {
         n: 3
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.translated?.n).toBeUndefined();
     });
@@ -280,7 +280,7 @@ describe('Chat to Response Translation', () => {
         future_field_2: 42
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.unknownFields).toContain('future_field_1');
@@ -297,7 +297,7 @@ describe('Chat to Response Translation', () => {
         custom_param: 'custom_value'
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.unknownFields).toContain('custom_param');
       expect(result.unknownFields.length).toBeGreaterThan(0);
@@ -306,7 +306,7 @@ describe('Chat to Response Translation', () => {
 
   describe('Error Handling', () => {
     it('should fail when request is not an object', () => {
-      const result = translateChatToResponse(null, { requestId: 'test-123' });
+      const result = translateChatToResponse(null);
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -318,7 +318,7 @@ describe('Chat to Response Translation', () => {
         messages: [{ role: 'user', content: 'Hello' }]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Model');
@@ -330,7 +330,7 @@ describe('Chat to Response Translation', () => {
         messages: [{ role: 'user', content: 'Hello' }]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Model');
@@ -341,7 +341,7 @@ describe('Chat to Response Translation', () => {
         model: 'gpt-4'
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Messages');
@@ -353,7 +353,7 @@ describe('Chat to Response Translation', () => {
         messages: []
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Messages');
@@ -365,7 +365,7 @@ describe('Chat to Response Translation', () => {
         messages: { role: 'user', content: 'Hello' }
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Messages');
@@ -377,7 +377,7 @@ describe('Chat to Response Translation', () => {
         messages: [{ role: 'user', content: 123 }]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('content');
@@ -390,7 +390,7 @@ describe('Chat to Response Translation', () => {
         messages: [{ role: 'invalid_role', content: 'Hello' }]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Invalid role');
@@ -404,7 +404,7 @@ describe('Chat to Response Translation', () => {
         messages: [{ content: 'Hello' }]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('role must be a string');
@@ -424,7 +424,7 @@ describe('Chat to Response Translation', () => {
         ]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.multi_turn_detected).toBe(true);
     });
@@ -435,7 +435,7 @@ describe('Chat to Response Translation', () => {
         messages: [{ role: 'user', content: 'Only one message' }]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.multi_turn_detected).toBe(false);
     });
@@ -502,7 +502,7 @@ describe('Chat to Response Translation', () => {
         metadata: { session: 'abc123' }
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated).toBeDefined();
@@ -527,7 +527,7 @@ describe('Chat to Response Translation', () => {
         messages: [{ role: 'user', content: 'Hello' }]
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.translated?.model).toBe('gpt-4');
@@ -544,7 +544,7 @@ describe('Chat to Response Translation', () => {
         experimental_feature: { nested: 'data' }
       };
 
-      const result = translateChatToResponse(chatRequest, { requestId: 'test-123' });
+      const result = translateChatToResponse(chatRequest);
 
       expect(result.success).toBe(true);
       expect(result.unknownFields).toEqual(['custom_field_1', 'future_api_field', 'experimental_feature']);

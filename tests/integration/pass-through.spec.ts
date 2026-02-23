@@ -207,12 +207,12 @@ describe('Pass-Through Integration Tests', () => {
       expect(response.statusCode).toBe(501);
       const body = JSON.parse(response.body);
       expect(body.error).toBe('Not Implemented');
-      expect(body.message).toContain('Translation not yet implemented');
+      expect(body.message).toContain('not yet implemented');
       expect(body.sourceFormat).toBe('response');
       expect(body.targetFormat).toBe('chat_completions');
     });
 
-    it('should return 501 when gpt-4 hits /v1/chat/completions', async () => {
+    it('should return 400 when gpt-4 hits /v1/chat/completions with empty messages', async () => {
       const response = await adapter.inject({
         method: 'POST',
         url: '/v1/chat/completions',
@@ -222,11 +222,8 @@ describe('Pass-Through Integration Tests', () => {
         }
       });
 
-      expect(response.statusCode).toBe(501);
-      const body = JSON.parse(response.body);
-      expect(body.error).toBe('Not Implemented');
-      expect(body.sourceFormat).toBe('chat_completions');
-      expect(body.targetFormat).toBe('response');
+      // Empty messages is an invalid chat request, returns 400 translation error
+      expect(response.statusCode).toBe(400);
     });
   });
 
@@ -243,8 +240,8 @@ describe('Pass-Through Integration Tests', () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe('Bad Request');
-      expect(body.message).toContain('not found');
+      expect(body.error.type).toBe('unknown_model');
+      expect(body.error.message).toContain('not found');
     });
 
     it('should return 400 for missing model field', async () => {
@@ -258,7 +255,7 @@ describe('Pass-Through Integration Tests', () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe('Bad Request');
+      expect(body.error.type).toBe('invalid_model_field');
     });
 
     it('should return 400 for empty model field', async () => {
@@ -273,7 +270,7 @@ describe('Pass-Through Integration Tests', () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe('Bad Request');
+      expect(body.error.type).toBe('invalid_model_field');
     });
 
     it('should return 404 for unknown endpoint', async () => {
