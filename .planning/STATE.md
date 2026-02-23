@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 3 of 5 (Conversation History)
-Plan: 0 of ? in current phase — NOT STARTED
-Status: Phase 2 complete
-Last activity: 2026-02-23 — Completed 02-03: Routing handler wired, round-trip integration tests passing (346 total tests)
+Plan: 1 of ? in current phase — IN PROGRESS
+Status: Phase 3 Plan 1 complete
+Last activity: 2026-02-23 — Completed 03-01: Redis history module, storeTurn/reconstructMessages, 358 total tests
 
 Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 2.2min
-- Total execution time: 11min
+- Total plans completed: 6
+- Average duration: 2.8min
+- Total execution time: 18min
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [████░░░░░░] 40%
 |-------|-------|-------|----------|
 | 01-chat-completions-responses-api-round-trip | 2 | 6min | 3min |
 | 02-responses-api-chat-completions-round-trip | 3 | 5min | 1.7min |
+| 03-conversation-history | 1 | 7min | 7min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2min), 01-02 (4min), 02-01 (5min), 02-02 (2min), 02-03 (3min)
+- Last 5 plans: 01-02 (4min), 02-01 (5min), 02-02 (2min), 02-03 (3min), 03-01 (7min)
 - Trend: —
 
 *Updated after each plan completion*
@@ -59,6 +60,10 @@ Recent decisions affecting current work:
 - [Phase 02-01]: previous_response_id is in KNOWN_RESPONSE_FIELDS but also in DROPPED_RESPONSE_FIELDS — separate scan ensures it appears in unknownFields for logging
 - [Phase 02-02]: Inline interface definitions local to response.ts — types only needed for internal return value shape of this single module
 - [Phase 02-02]: Default stop_reason to end_turn for null/unknown finish_reason — mirrors Phase 1 forward-compatible default pattern
+- [Phase 03-01]: ioredis named export {Redis} required — default import does not work with NodeNext module resolution
+- [Phase 03-01]: conversation-store.ts uses import type { Redis } from ioredis — type-only import avoids namespace collision
+- [Phase 03-01]: JSON string storage in Redis (not hash) with EX TTL for storeTurn — simple get/set with atomic TTL
+- [Phase 03-01]: maxDepth default of 75 turns — within the 50-100 range from CONTEXT.md
 
 ### Pending Todos
 
@@ -72,5 +77,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed Phase 2 (02-03-PLAN.md) — routing handler wired, 346 tests passing, Phase 2 fully complete
+Stopped at: Completed 03-01-PLAN.md — Redis history module, storeTurn/reconstructMessages, 358 tests passing
 Resume file: None
