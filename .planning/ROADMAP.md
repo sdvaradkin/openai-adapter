@@ -97,6 +97,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Chat Completions → Responses API Round-Trip | 2/2 | Complete   | 2026-02-19 |
 | 2. Responses API → Chat Completions Round-Trip | 3/3 | Complete   | 2026-02-23 |
-| 3. Conversation History | 2/2 | Complete   | 2026-02-23 |
+| 3. Conversation History | 2/2 | Complete    | 2026-02-23 |
 | 4. Tool Translation | 0/? | Not started | - |
 | 5. Production Hardening and Verification | 0/? | Not started | - |
