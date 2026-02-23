@@ -11,7 +11,7 @@
     "dev": "tsx --watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:unit": "vitest run tests/unit",
+    "test:unit": "vitest run tests/unit tests/integration/translation",
     "test:integration": "npm run test:smoke && npm run test:regression",
     "test:smoke": "vitest run tests/integration/smoke --config vitest.integration.config.ts",
     "test:regression": "vitest run tests/integration/regression --config vitest.integration.config.ts",

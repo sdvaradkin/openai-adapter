@@ -15,5 +15,10 @@ export * from './types.js';
 export * from './chat-to-response/types.js';
 export * from './chat-to-response/request.js';
 
+// Response → Chat translation
+export * from './response-to-chat/types.js';
+export * from './response-to-chat/response.js';
+export { translateResponseApiToChatResponse } from './response-to-chat/response.js';
+
 // Main exports for convenience
 export { translateChatToResponse, isChatCompletionsRequest } from './chat-to-response/request.js';

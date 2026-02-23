@@ -144,3 +144,34 @@ export function getKnownResponseFields(): string[] {
 export function getDroppedFields(): string[] {
   return Array.from(DROPPED_FIELDS);
 }
+
+/**
+ * Fields that are Responses API-only with no Chat Completions equivalent.
+ * These are dropped (not forwarded) during Response→Chat request translation.
+ */
+const DROPPED_RESPONSE_FIELDS = new Set([
+  'previous_response_id', // Stateful history — no Chat Completions equivalent (Phase 3 concern)
+  'store',                // Response storage — no Chat Completions equivalent
+  'reasoning',            // Reasoning models only — no Chat Completions equivalent
+  'reasoning_effort',     // Reasoning models only — no Chat Completions equivalent
+  'background',           // Async mode — no Chat Completions equivalent
+  'truncation',           // Responses API-specific truncation control
+  'include',              // Responses API-specific include hints
+  'user',                 // User tracking — no Chat Completions equivalent
+]);
+
+/**
+ * Check if a Responses API field should be dropped during Response→Chat translation
+ * @param fieldName The field name to check
+ * @returns true if field should be dropped and not forwarded to Chat Completions
+ */
+export function isDroppedResponseField(fieldName: string): boolean {
+  return DROPPED_RESPONSE_FIELDS.has(fieldName);
+}
+
+/**
+ * Get list of all dropped Responses API-only fields
+ */
+export function getDroppedResponseFields(): string[] {
+  return Array.from(DROPPED_RESPONSE_FIELDS);
+}
