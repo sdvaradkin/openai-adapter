@@ -19,7 +19,7 @@
 ### Conversation History
 
 - [x] **HIST-01**: Adapter stores each Response API response in Redis keyed by response ID
-- [ ] **HIST-02**: When conversation context is provided (via `previous_response_id` or inline `conversation` field), adapter reconstructs `messages[]` for Chat Completions backend
+- [x] **HIST-02**: When conversation context is provided (via `previous_response_id` or inline `conversation` field), adapter reconstructs `messages[]` for Chat Completions backend
 - [x] **HIST-03**: Conversation history survives process restart (Redis-backed, not in-memory)
 
 ### Tool / Function Call Translation
@@ -68,7 +68,7 @@
 | TRANS-03 | Phase 2 | Complete |
 | RESP-02 | Phase 2 | Complete |
 | HIST-01 | Phase 3 | Complete |
-| HIST-02 | Phase 3 | Pending |
+| HIST-02 | Phase 3 | Complete |
 | HIST-03 | Phase 3 | Complete |
 | TOOL-01 | Phase 4 | Pending |
 | TOOL-02 | Phase 4 | Pending |

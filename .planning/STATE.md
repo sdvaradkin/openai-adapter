@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Any OpenAI-compatible client can talk to any model regardless of which API format that model natively supports — with no changes to the client.
-**Current focus:** Phase 3 — Conversation History
+**Current focus:** Phase 3 — Conversation History (COMPLETE)
 
 ## Current Position
 
-Phase: 3 of 5 (Conversation History)
-Plan: 1 of ? in current phase — IN PROGRESS
-Status: Phase 3 Plan 1 complete
-Last activity: 2026-02-23 — Completed 03-01: Redis history module, storeTurn/reconstructMessages, 358 total tests
+Phase: 3 of 5 (Conversation History) — COMPLETE
+Plan: 2 of 2 in current phase — COMPLETE
+Status: Phase 3 complete — multi-turn conversation history fully operational
+Last activity: 2026-02-23 — Completed 03-02: Redis wired into routing handler, 362 unit tests, 5 integration tests with real Redis
 
-Progress: [████░░░░░░] 40%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 2.8min
-- Total execution time: 18min
+- Total plans completed: 7
+- Average duration: 2.7min
+- Total execution time: 24min
 
 **By Phase:**
 
@@ -29,13 +29,14 @@ Progress: [████░░░░░░] 40%
 |-------|-------|-------|----------|
 | 01-chat-completions-responses-api-round-trip | 2 | 6min | 3min |
 | 02-responses-api-chat-completions-round-trip | 3 | 5min | 1.7min |
-| 03-conversation-history | 1 | 7min | 7min |
+| 03-conversation-history | 2 | 13min | 6.5min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (4min), 02-01 (5min), 02-02 (2min), 02-03 (3min), 03-01 (7min)
-- Trend: —
+- Last 5 plans: 02-01 (5min), 02-02 (2min), 02-03 (3min), 03-01 (7min), 03-02 (6min)
+- Trend: Stable
 
 *Updated after each plan completion*
+| Phase 03 P02 | 6min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,13 @@ Recent decisions affecting current work:
 - [Phase 03-01]: conversation-store.ts uses import type { Redis } from ioredis — type-only import avoids namespace collision
 - [Phase 03-01]: JSON string storage in Redis (not hash) with EX TTL for storeTurn — simple get/set with atomic TTL
 - [Phase 03-01]: maxDepth default of 75 turns — within the 50-100 range from CONTEXT.md
+- [Phase 03-02]: Standard new Redis(url) in integration tests — createRedisClient lazyConnect+enableOfflineQueue:false causes test verification failures when calling redis.get() directly
+- [Phase 03-02]: conversation-history.test.ts excluded from default vitest run — testcontainers require Docker, run with vitest.integration.config.ts
+- [Phase 03-02]: storeTurn called after sendProxyResponse — history stored only on successful responses
+- [Phase 03-02]: extractAssistantOutput works on translated Responses API format (output[].type=message, content[].type=output_text)
+- [Phase 03-02]: Standard new Redis(url) in integration tests — createRedisClient lazyConnect+enableOfflineQueue:false causes test verification failures
+- [Phase 03-02]: conversation-history.test.ts excluded from default vitest run — testcontainers require Docker, run with vitest.integration.config.ts
+- [Phase 03-02]: storeTurn called after sendProxyResponse — history stored only on successful responses, never on errors
 
 ### Pending Todos
 
@@ -71,11 +79,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 1 blocker resolved: Chat→ResponsesAPI→Chat round-trip is now implemented end-to-end (was: "Response→Chat request translation currently returns 501")
-- Redis dependency (HIST) is a new infrastructure addition — Docker Compose and integration test setup will need to accommodate it in Phase 3
+- Phase 1 blocker resolved: Chat→ResponsesAPI→Chat round-trip is now implemented end-to-end
+- Redis dependency resolved: Docker Compose and integration test setup ready for Phase 3
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 03-01-PLAN.md — Redis history module, storeTurn/reconstructMessages, 358 tests passing
+Stopped at: Completed 03-02-PLAN.md — Redis wired into routing handler, multi-turn history functional end-to-end, 362 unit + 5 integration tests passing
 Resume file: None

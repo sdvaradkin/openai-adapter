@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Chat Completions → Responses API Round-Trip** - A Chat Completions client can send a request and receive a correctly shaped Chat Completions response from a Responses API backend (completed 2026-02-19)
 - [ ] **Phase 2: Responses API → Chat Completions Round-Trip** - A Responses API client can send a request and receive a correctly shaped Responses API response from a Chat Completions backend (stateless — new conversation each time)
-- [ ] **Phase 3: Conversation History** - Redis-backed multi-turn history reconstructed for Chat Completions backends
+- [x] **Phase 3: Conversation History** - Redis-backed multi-turn history reconstructed for Chat Completions backends (completed 2026-02-23)
 - [ ] **Phase 4: Tool Translation** - Chat Completions and Responses API tool schemas mapped best-effort in both directions
 - [ ] **Phase 5: Production Hardening and Verification** - Startup health checks, timeout coverage, integration tests, and SDK compatibility
 
@@ -97,6 +97,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Chat Completions → Responses API Round-Trip | 2/2 | Complete   | 2026-02-19 |
 | 2. Responses API → Chat Completions Round-Trip | 3/3 | Complete   | 2026-02-23 |
-| 3. Conversation History | 1/2 | In Progress|  |
+| 3. Conversation History | 2/2 | Complete   | 2026-02-23 |
 | 4. Tool Translation | 0/? | Not started | - |
 | 5. Production Hardening and Verification | 0/? | Not started | - |
