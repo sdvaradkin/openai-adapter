@@ -192,6 +192,18 @@ async function handleChatToResponseFlow(
       status: upstream.status
     });
 
+    // Pass through upstream errors without translation
+    if (upstream.status >= 400) {
+      request.log.warn({
+        action: 'upstream_error',
+        endpoint: 'responses',
+        model: routingResult.model,
+        status: upstream.status
+      });
+      sendProxyResponse(reply, upstream);
+      return;
+    }
+
     // 3. Parse and translate response
     let parsedBody: unknown;
     try {
@@ -335,6 +347,18 @@ async function handleResponseToChatFlow(
       model: routingResult.model,
       status: upstream.status
     });
+
+    // Pass through upstream errors without translation
+    if (upstream.status >= 400) {
+      request.log.warn({
+        action: 'upstream_error',
+        endpoint: 'chat/completions',
+        model: routingResult.model,
+        status: upstream.status
+      });
+      sendProxyResponse(reply, upstream);
+      return;
+    }
 
     // 3. Parse and translate response
     let parsedBody: unknown;

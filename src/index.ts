@@ -150,8 +150,9 @@ export async function startServer(): Promise<void> {
     // Set global config state to valid for readiness handler
     setConfigValid(config as unknown as Record<string, unknown>);
 
-    // Create Redis client — lazyConnect means first command triggers connection
+    // Create Redis client and connect
     const redis = createRedisClient(config.redisUrl);
+    await redis.connect();
 
     const app = buildServer({ config, redis });
 
