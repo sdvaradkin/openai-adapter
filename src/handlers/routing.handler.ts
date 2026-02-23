@@ -1,4 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { Redis } from 'ioredis';
 import { Router } from '../routing/router.js';
 import { ModelMapper } from '../routing/model-mapper.js';
 import { createPassThroughHandler } from './pass-through.handler.js';
@@ -11,8 +12,9 @@ import { validateJsonDepth } from '../validation/json-depth-validator.js';
 import { isValidationError } from '../types/validation-errors.js';
 import { formatValidationError } from './error-formatter.js';
 import { buildUpstreamUrl, forwardHeaders, proxyToUpstream, sendProxyResponse } from './upstream-proxy.js';
+import { storeTurn, reconstructMessages } from '../history/conversation-store.js';
 
-export function createRoutingHandler(config: AdapterConfig) {
+export function createRoutingHandler(config: AdapterConfig, redis?: Redis) {
   const modelMapper = new ModelMapper(config.modelMapping);
   const router = new Router(modelMapper);
 
@@ -66,7 +68,7 @@ export function createRoutingHandler(config: AdapterConfig) {
         routingResult.sourceFormat === 'response' &&
         routingResult.targetFormat === 'chat_completions'
       ) {
-        await handleResponseToChatFlow(request, reply, config, routingResult, endpoint);
+        await handleResponseToChatFlow(request, reply, config, routingResult, endpoint, redis);
         return;
       }
 
@@ -232,17 +234,45 @@ async function handleChatToResponseFlow(
 
 /**
  * Handle the Responses API -> Chat Completions translation flow:
- * 1. Translate request
- * 2. Proxy to upstream Chat Completions
- * 3. Translate response back to Responses API format
+ * 1. Reconstruct conversation history from Redis (if previous_response_id present)
+ * 2. Translate request
+ * 3. Prepend prior messages to the translated request
+ * 4. Proxy to upstream Chat Completions
+ * 5. Translate response back to Responses API format
+ * 6. Store the turn in Redis for future history reconstruction
  */
 async function handleResponseToChatFlow(
   request: FastifyRequest,
   reply: FastifyReply,
   config: AdapterConfig,
   routingResult: { model: string },
-  endpoint: string
+  endpoint: string,
+  redis?: Redis
 ): Promise<void> {
+  // Extract previous_response_id from request body
+  const body = request.body as Record<string, unknown>;
+  const previousResponseId = typeof body['previous_response_id'] === 'string'
+    ? body['previous_response_id']
+    : null;
+
+  // Reconstruct prior messages if history is available
+  let priorMessages: Array<{ role: string; content: string }> = [];
+  if (previousResponseId !== null && redis) {
+    priorMessages = await reconstructMessages(
+      redis,
+      previousResponseId,
+      config.redisKeyPrefix,
+      config.conversationMaxDepth
+    );
+    if (priorMessages.length > 0) {
+      request.log.info({
+        action: 'history_reconstructed',
+        previousResponseId,
+        turns: priorMessages.length / 2
+      });
+    }
+  }
+
   // 1. Translate Responses API request → Chat Completions request
   const requestTranslationResult = translateResponseToChatRequest(request.body);
 
@@ -259,6 +289,14 @@ async function handleResponseToChatFlow(
       requestId: request.id
     });
     return;
+  }
+
+  // Prepend prior messages from history to the translated request
+  if (priorMessages.length > 0 && requestTranslationResult.translated) {
+    requestTranslationResult.translated.messages = [
+      ...priorMessages,
+      ...requestTranslationResult.translated.messages
+    ];
   }
 
   // Log dropped fields if any (TRANS-03)
@@ -333,7 +371,65 @@ async function handleResponseToChatFlow(
     }
 
     sendProxyResponse(reply, upstream, JSON.stringify(responseTranslationResult.translated));
+
+    // Store this turn for future history reconstruction
+    if (redis) {
+      const userInput = extractUserInput(body);
+      const assistantOutput = extractAssistantOutput(responseTranslationResult.translated);
+      const responseId = extractResponseId(responseTranslationResult.translated);
+
+      if (responseId && userInput && assistantOutput) {
+        await storeTurn(redis, responseId, {
+          userInput,
+          assistantOutput,
+          previousResponseId,
+        }, config.redisKeyPrefix, config.conversationTtlSeconds);
+      }
+    }
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function extractUserInput(body: Record<string, unknown>): string | null {
+  const input = body['input'];
+  if (typeof input === 'string') return input;
+  if (Array.isArray(input)) return JSON.stringify(input);
+  return null;
+}
+
+function extractAssistantOutput(upstreamResponse: unknown): string | null {
+  // The upstream response has been translated to Responses API format
+  // by translateChatToResponseApiResponse. Extract output text.
+  if (typeof upstreamResponse !== 'object' || upstreamResponse === null) return null;
+  const resp = upstreamResponse as Record<string, unknown>;
+  const output = resp['output'];
+  if (!Array.isArray(output)) return null;
+  // Find the message output item with assistant content
+  for (const item of output) {
+    if (typeof item === 'object' && item !== null) {
+      const outputItem = item as Record<string, unknown>;
+      if (outputItem['type'] === 'message') {
+        const content = outputItem['content'];
+        if (Array.isArray(content)) {
+          for (const part of content) {
+            if (typeof part === 'object' && part !== null) {
+              const contentPart = part as Record<string, unknown>;
+              if (contentPart['type'] === 'output_text' && typeof contentPart['text'] === 'string') {
+                return contentPart['text'];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function extractResponseId(upstreamResponse: unknown): string | null {
+  if (typeof upstreamResponse !== 'object' || upstreamResponse === null) return null;
+  const resp = upstreamResponse as Record<string, unknown>;
+  const id = resp['id'];
+  return typeof id === 'string' ? id : null;
 }

@@ -7,6 +7,8 @@ import { createRoutingHandler } from './handlers/routing.handler.js';
 import { setConfigValid, setConfigInvalid } from './config/state.js';
 import { formatValidationError } from './handlers/error-formatter.js';
 import { ValidationError, VALIDATION_ERROR_TYPES, isValidationError } from './types/validation-errors.js';
+import { createRedisClient } from './history/redis-client.js';
+import { Redis } from 'ioredis';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -17,6 +19,7 @@ declare module 'fastify' {
 export type BuildServerOptions = {
   logger?: FastifyServerOptions['logger'];
   config?: AdapterConfig;
+  redis?: Redis;
 };
 
 export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
@@ -120,7 +123,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
 
   // Register API endpoints with routing handler (if config is available)
   if (app.config) {
-    const routingHandler = createRoutingHandler(app.config);
+    const routingHandler = createRoutingHandler(app.config, options.redis);
     app.post('/v1/responses', routingHandler);
     app.post('/v1/chat/completions', routingHandler);
   }
@@ -132,8 +135,8 @@ export async function startServer(): Promise<void> {
   try {
     // Load and validate configuration
     const config = await loadConfiguration();
-    
-    console.log(JSON.stringify({ 
+
+    console.log(JSON.stringify({
       level: 'info',
       msg: 'Configuration loaded successfully',
       targetUrl: config.targetUrl,
@@ -147,7 +150,10 @@ export async function startServer(): Promise<void> {
     // Set global config state to valid for readiness handler
     setConfigValid(config as unknown as Record<string, unknown>);
 
-    const app = buildServer({ config });
+    // Create Redis client — lazyConnect means first command triggers connection
+    const redis = createRedisClient(config.redisUrl);
+
+    const app = buildServer({ config, redis });
 
     const port = Number.parseInt(process.env.PORT ?? '3000', 10);
 
