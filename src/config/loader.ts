@@ -61,7 +61,7 @@ export function loadEnvConfig(): EnvConfig {
     const config = envSchema<EnvConfig>({
       schema,
       data: process.env,
-      dotenv: false
+      dotenv: true
     });
     
     // Validate URL format using URL constructor
