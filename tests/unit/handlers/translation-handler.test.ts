@@ -4,10 +4,11 @@
  * in the chat_completions→response branch of the routing handler
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { buildServer } from '../../../src/index.js';
 import type { FastifyInstance } from 'fastify';
 import type { AdapterConfig } from '../../../src/config/types.js';
+import type { Redis } from 'ioredis';
 
 const testConfig: AdapterConfig = {
   targetUrl: 'https://api.openai.com',
@@ -254,5 +255,201 @@ describe('Routing handler — response → chat_completions translation wiring',
     });
 
     expect(response.statusCode).toBe(504);
+  });
+});
+
+describe('Phase 3: Conversation History in handler', () => {
+  const historyConfig: AdapterConfig = {
+    targetUrl: 'https://api.openai.com',
+    modelMapping: { 'gpt-3.5-turbo': 'chat_completions' },
+    maxRequestSizeBytes: 10485760,
+    maxJsonDepth: 100,
+    upstreamTimeoutSeconds: 30,
+    maxConcurrentConnections: 1000,
+    modelMappingFile: '/dev/null',
+    redisUrl: 'redis://localhost:6379',
+    redisKeyPrefix: 'oai-adapter:',
+    conversationTtlSeconds: 86400,
+    conversationMaxDepth: 75,
+  };
+
+  function makeChatCompletionsResponse(id = 'chatcmpl-hist-001', text = 'History reply'): string {
+    return JSON.stringify({
+      id,
+      object: 'chat.completion',
+      model: 'gpt-3.5-turbo',
+      choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }
+    });
+  }
+
+  function makeMockRedis(store: Map<string, string> = new Map()): Redis {
+    return {
+      get: vi.fn(async (key: string) => store.get(key) ?? null),
+      set: vi.fn(async (key: string, value: string) => {
+        store.set(key, value);
+        return 'OK';
+      }),
+    } as unknown as Redis;
+  }
+
+  let app: FastifyInstance;
+  let mockRedis: Redis;
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await app?.close();
+  });
+
+  it('stores turn in Redis after successful response→chat translation', async () => {
+    mockRedis = makeMockRedis();
+    app = buildServer({ config: historyConfig, redis: mockRedis, logger: false });
+    await app.ready();
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: vi.fn().mockResolvedValue(makeChatCompletionsResponse('chatcmpl-stored-001', 'I am the assistant'))
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Hello there' }
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    // Verify storeTurn was called (redis.set was called)
+    const setMock = mockRedis.set as Mock;
+    expect(setMock).toHaveBeenCalled();
+
+    // Verify the key is prefixed with redisKeyPrefix + the response id
+    const callArgs = setMock.mock.calls[0] as unknown[];
+    const storedKey = callArgs[0] as string;
+    expect(storedKey).toMatch(/^oai-adapter:/);
+
+    // Verify the stored JSON contains the expected fields
+    const storedJson = JSON.parse(callArgs[1] as string) as Record<string, unknown>;
+    expect(storedJson['userInput']).toBe('Hello there');
+    expect(storedJson['assistantOutput']).toBe('I am the assistant');
+    expect(storedJson['previousResponseId']).toBeNull();
+  });
+
+  it('reconstructs history when previous_response_id is provided', async () => {
+    // Pre-populate the store with a prior turn
+    const priorTurn = JSON.stringify({
+      userInput: 'What is 2+2?',
+      assistantOutput: 'It is 4.',
+      previousResponseId: null,
+    });
+    const store = new Map<string, string>([['oai-adapter:resp_prior_001', priorTurn]]);
+    mockRedis = makeMockRedis(store);
+
+    app = buildServer({ config: historyConfig, redis: mockRedis, logger: false });
+    await app.ready();
+
+    let capturedBody: Record<string, unknown> | null = null;
+
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string) as Record<string, unknown>;
+      return {
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: vi.fn().mockResolvedValue(makeChatCompletionsResponse('chatcmpl-turn2', 'Follow-up reply'))
+      };
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Now what is 3+3?', previous_response_id: 'resp_prior_001' }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(capturedBody).not.toBeNull();
+
+    // The upstream messages array must contain the prior turn prepended
+    const messages = capturedBody!['messages'] as Array<{ role: string; content: string }>;
+    expect(messages.length).toBeGreaterThanOrEqual(3); // prior user + prior assistant + current user
+    expect(messages[0].role).toBe('user');
+    expect(messages[0].content).toBe('What is 2+2?');
+    expect(messages[1].role).toBe('assistant');
+    expect(messages[1].content).toBe('It is 4.');
+    // Current turn's message comes last
+    const lastMessage = messages[messages.length - 1];
+    expect(lastMessage.role).toBe('user');
+    expect(lastMessage.content).toBe('Now what is 3+3?');
+  });
+
+  it('proceeds without history when previous_response_id points to missing key', async () => {
+    // Empty Redis store — no prior turn stored
+    mockRedis = makeMockRedis();
+    app = buildServer({ config: historyConfig, redis: mockRedis, logger: false });
+    await app.ready();
+
+    let capturedBody: Record<string, unknown> | null = null;
+
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string) as Record<string, unknown>;
+      return {
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: vi.fn().mockResolvedValue(makeChatCompletionsResponse('chatcmpl-no-history', 'Fresh response'))
+      };
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Hello fresh', previous_response_id: 'resp_nonexistent' }
+    });
+
+    // Must succeed — missing history is treated as new conversation
+    expect(response.statusCode).toBe(200);
+    expect(capturedBody).not.toBeNull();
+
+    // Only the current turn's message should be present — no prior messages prepended
+    const messages = capturedBody!['messages'] as Array<{ role: string; content: string }>;
+    expect(messages.length).toBe(1);
+    expect(messages[0].role).toBe('user');
+    expect(messages[0].content).toBe('Hello fresh');
+  });
+
+  it('proceeds without history when redis is not provided', async () => {
+    // Create handler without redis parameter
+    app = buildServer({ config: historyConfig, logger: false });
+    await app.ready();
+
+    let capturedBody: Record<string, unknown> | null = null;
+
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string) as Record<string, unknown>;
+      return {
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: vi.fn().mockResolvedValue(makeChatCompletionsResponse('chatcmpl-no-redis', 'No redis reply'))
+      };
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Hello no redis', previous_response_id: 'resp_prev_123' }
+    });
+
+    // Must succeed even with previous_response_id — no redis means no history
+    expect(response.statusCode).toBe(200);
+    expect(capturedBody).not.toBeNull();
+
+    // Only the current turn's message
+    const messages = capturedBody!['messages'] as Array<{ role: string; content: string }>;
+    expect(messages.length).toBe(1);
+    expect(messages[0].role).toBe('user');
+    expect(messages[0].content).toBe('Hello no redis');
   });
 });

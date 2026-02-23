@@ -6,7 +6,8 @@ export default defineConfig({
       '**/node_modules/**',
       '**/dist/**',
       '**/tests/integration/smoke/**',
-      '**/tests/integration/regression/**'
+      '**/tests/integration/regression/**',
+      '**/tests/integration/translation/conversation-history.test.ts'
     ],
     environment: 'node',
     coverage: {
