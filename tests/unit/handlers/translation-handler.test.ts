@@ -150,3 +150,104 @@ describe('Routing handler — response translation wiring', () => {
     expect(body.error).toBe('Gateway Timeout');
   });
 });
+
+describe('Routing handler — response → chat_completions translation wiring', () => {
+  const chatConfig: AdapterConfig = {
+    targetUrl: 'https://api.openai.com',
+    modelMapping: { 'gpt-3.5-turbo': 'chat_completions' },
+    maxRequestSizeBytes: 10485760,
+    maxJsonDepth: 100,
+    upstreamTimeoutSeconds: 30,
+    maxConcurrentConnections: 1000
+  };
+
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = buildServer({ config: chatConfig, logger: false });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await app.close();
+  });
+
+  it('should translate Responses API request and return Responses API response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: vi.fn().mockResolvedValue(JSON.stringify({
+        id: 'chatcmpl-abc',
+        object: 'chat.completion',
+        model: 'gpt-3.5-turbo',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Hi there!' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 }
+      }))
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Hello' }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.object).toBe('response');
+    expect(Array.isArray(body.output)).toBe(true);
+    expect(body.output[0].content[0].text).toBe('Hi there!');
+    expect(body.stop_reason).toBe('end_turn');
+    expect(body.choices).toBeUndefined();
+  });
+
+  it('should return 502 when upstream Chat Completions returns non-JSON response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({ 'content-type': 'text/html' }),
+      text: vi.fn().mockResolvedValue('<html>Error</html>')
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Hello' }
+    });
+
+    expect(response.statusCode).toBe(502);
+  });
+
+  it('should return 502 when upstream Chat Completions response translation fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: vi.fn().mockResolvedValue(JSON.stringify({ id: 'c1', choices: [] }))
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Hello' }
+    });
+
+    expect(response.statusCode).toBe(502);
+  });
+
+  it('should return 504 on upstream timeout', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(
+      Object.assign(new Error('The operation was aborted'), { name: 'AbortError' })
+    ));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: { 'content-type': 'application/json' },
+      payload: { model: 'gpt-3.5-turbo', input: 'Hello' }
+    });
+
+    expect(response.statusCode).toBe(504);
+  });
+});

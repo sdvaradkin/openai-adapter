@@ -5,38 +5,36 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Any OpenAI-compatible client can talk to any model regardless of which API format that model natively supports — with no changes to the client.
-**Current focus:** Phase 2 — Responses API → Chat Completions Round-Trip
+**Current focus:** Phase 3 — Conversation History
 
 ## Current Position
 
-Phase: 2 of 5 (Responses API → Chat Completions Round-Trip)
-Plan: 2 of 3 in current phase — IN PROGRESS
-Status: Phase 2 plan 02-02 complete
-Last activity: 2026-02-19 — Completed 02-02: translateChatToResponseApiResponse implemented with 26 passing unit tests
+Phase: 3 of 5 (Conversation History)
+Plan: 0 of ? in current phase — NOT STARTED
+Status: Phase 2 complete
+Last activity: 2026-02-23 — Completed 02-03: Routing handler wired, round-trip integration tests passing (346 total tests)
 
-Progress: [███░░░░░░░] 26%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 2min
-- Total execution time: 8min
+- Total plans completed: 5
+- Average duration: 2.2min
+- Total execution time: 11min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-chat-completions-responses-api-round-trip | 2 | 6min | 3min |
-| 02-responses-api-chat-completions-round-trip | 2 | 2min (so far) | 1min |
+| 02-responses-api-chat-completions-round-trip | 3 | 5min | 1.7min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2min), 01-02 (4min), 02-01 (5min), 02-02 (2min)
+- Last 5 plans: 01-01 (2min), 01-02 (4min), 02-01 (5min), 02-02 (2min), 02-03 (3min)
 - Trend: —
 
 *Updated after each plan completion*
-| Phase 02 P02 | 2 | 2 tasks | 2 files |
-| Phase 02-responses-api-chat-completions-round-trip P01 | 5 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -73,6 +71,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Completed 02-02-PLAN.md — translateChatToResponseApiResponse implemented with 26 passing unit tests
+Last session: 2026-02-23
+Stopped at: Completed Phase 2 (02-03-PLAN.md) — routing handler wired, 346 tests passing, Phase 2 fully complete
 Resume file: None

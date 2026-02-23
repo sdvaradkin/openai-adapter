@@ -4,6 +4,8 @@ import { ModelMapper } from '../routing/model-mapper.js';
 import { createPassThroughHandler } from './pass-through.handler.js';
 import { translateChatToResponse } from '../translation/chat-to-response/request.js';
 import { translateResponseApiToChatResponse } from '../translation/response-to-chat/response.js';
+import { translateResponseToChatRequest } from '../translation/response-to-chat/request.js';
+import { translateChatToResponseApiResponse } from '../translation/chat-to-response/response.js';
 import type { AdapterConfig } from '../config/types.js';
 import { validateJsonDepth } from '../validation/json-depth-validator.js';
 import { isValidationError } from '../types/validation-errors.js';
@@ -57,6 +59,14 @@ export function createRoutingHandler(config: AdapterConfig) {
         routingResult.targetFormat === 'response'
       ) {
         await handleChatToResponseFlow(request, reply, config, routingResult, endpoint);
+        return;
+      }
+
+      if (
+        routingResult.sourceFormat === 'response' &&
+        routingResult.targetFormat === 'chat_completions'
+      ) {
+        await handleResponseToChatFlow(request, reply, config, routingResult, endpoint);
         return;
       }
 
@@ -215,6 +225,114 @@ async function handleChatToResponseFlow(
     }
 
     sendProxyResponse(reply, upstream, JSON.stringify(responseToChatResult.translated));
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Handle the Responses API -> Chat Completions translation flow:
+ * 1. Translate request
+ * 2. Proxy to upstream Chat Completions
+ * 3. Translate response back to Responses API format
+ */
+async function handleResponseToChatFlow(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  config: AdapterConfig,
+  routingResult: { model: string },
+  endpoint: string
+): Promise<void> {
+  // 1. Translate Responses API request → Chat Completions request
+  const requestTranslationResult = translateResponseToChatRequest(request.body);
+
+  if (!requestTranslationResult.success) {
+    request.log.warn({
+      action: 'translation_failed',
+      endpoint,
+      model: routingResult.model,
+      error: requestTranslationResult.error
+    });
+    reply.code(400).send({
+      error: 'Translation Error',
+      message: requestTranslationResult.error,
+      requestId: request.id
+    });
+    return;
+  }
+
+  // Log dropped fields if any (TRANS-03)
+  if (requestTranslationResult.unknownFields.length > 0) {
+    request.log.info({
+      action: 'translation_fields_dropped',
+      endpoint,
+      model: routingResult.model,
+      dropped_fields: requestTranslationResult.unknownFields
+    });
+  }
+
+  request.log.debug({
+    action: 'translation_completed',
+    endpoint,
+    model: routingResult.model
+  });
+
+  // 2. Proxy to upstream Chat Completions
+  const timeoutMs = config.upstreamTimeoutSeconds * 1000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const upstream = await proxyToUpstream({
+      url: buildUpstreamUrl(config.targetUrl, 'chat/completions'),
+      method: 'POST',
+      headers: forwardHeaders(request.headers),
+      body: JSON.stringify(requestTranslationResult.translated),
+      signal: controller.signal
+    });
+
+    request.log.info({
+      action: 'upstream_request',
+      endpoint: 'chat/completions',
+      model: routingResult.model,
+      status: upstream.status
+    });
+
+    // 3. Parse and translate response
+    let parsedBody: unknown;
+    try {
+      parsedBody = JSON.parse(upstream.body);
+    } catch {
+      request.log.warn({
+        action: 'response_parse_failed',
+        endpoint,
+        model: routingResult.model,
+        status: upstream.status
+      });
+      reply.code(502).send({
+        error: 'Bad Gateway',
+        message: 'Upstream returned non-JSON response'
+      });
+      return;
+    }
+
+    const responseTranslationResult = translateChatToResponseApiResponse(parsedBody);
+
+    if (!responseTranslationResult.success) {
+      request.log.warn({
+        action: 'response_translation_failed',
+        endpoint,
+        model: routingResult.model,
+        error: responseTranslationResult.error
+      });
+      reply.code(502).send({
+        error: 'Bad Gateway',
+        message: 'Failed to translate upstream response'
+      });
+      return;
+    }
+
+    sendProxyResponse(reply, upstream, JSON.stringify(responseTranslationResult.translated));
   } finally {
     clearTimeout(timeoutId);
   }
