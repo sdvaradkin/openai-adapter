@@ -26,7 +26,13 @@ describe('Pass-Through Integration Tests', () => {
       'gpt-4o-mini': 'response'
     },
     upstreamTimeoutSeconds: 10,
-    maxConcurrentConnections: 1000
+    maxConcurrentConnections: 1000,
+    maxRequestSizeBytes: 10 * 1024 * 1024,
+    maxJsonDepth: 100,
+    redisUrl: 'redis://localhost:6379',
+    redisKeyPrefix: 'oai-adapter:',
+    conversationTtlSeconds: 86400,
+    conversationMaxDepth: 75,
   };
 
   beforeAll(async () => {

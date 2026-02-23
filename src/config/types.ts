@@ -10,4 +10,8 @@ export interface AdapterConfig {
   maxConcurrentConnections: number;
   maxRequestSizeBytes: number;
   maxJsonDepth: number;
+  redisUrl: string;
+  redisKeyPrefix: string;
+  conversationTtlSeconds: number;
+  conversationMaxDepth: number;
 }

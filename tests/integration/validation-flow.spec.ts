@@ -21,7 +21,11 @@ describe('Validation Integration - Full Flow', () => {
     upstreamTimeoutSeconds: 60,
     maxConcurrentConnections: 1000,
     maxRequestSizeBytes: 10 * 1024 * 1024, // 10MB
-    maxJsonDepth: 100
+    maxJsonDepth: 100,
+    redisUrl: 'redis://localhost:6379',
+    redisKeyPrefix: 'oai-adapter:',
+    conversationTtlSeconds: 86400,
+    conversationMaxDepth: 75,
   };
 
   describe('Validation error responses', () => {

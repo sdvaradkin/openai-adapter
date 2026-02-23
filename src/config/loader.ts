@@ -10,11 +10,15 @@ interface EnvConfig {
   MAX_CONCURRENT_CONNECTIONS?: string;
   MAX_REQUEST_SIZE_MB?: string;
   MAX_JSON_DEPTH?: string;
+  REDIS_URL: string;
+  REDIS_KEY_PREFIX?: string;
+  CONVERSATION_TTL_SECONDS?: string;
+  CONVERSATION_MAX_DEPTH?: string;
 }
 
 const schema = {
   type: 'object',
-  required: ['ADAPTER_TARGET_URL', 'MODEL_API_MAPPING_FILE'],
+  required: ['ADAPTER_TARGET_URL', 'MODEL_API_MAPPING_FILE', 'REDIS_URL'],
   properties: {
     ADAPTER_TARGET_URL: {
       type: 'string',
@@ -34,6 +38,19 @@ const schema = {
       type: 'string'
     },
     MAX_JSON_DEPTH: {
+      type: 'string'
+    },
+    REDIS_URL: {
+      type: 'string',
+      minLength: 1
+    },
+    REDIS_KEY_PREFIX: {
+      type: 'string'
+    },
+    CONVERSATION_TTL_SECONDS: {
+      type: 'string'
+    },
+    CONVERSATION_MAX_DEPTH: {
       type: 'string'
     }
   }
@@ -254,7 +271,25 @@ export async function loadConfiguration(): Promise<AdapterConfig> {
     100,
     1
   );
-  
+
+  // Parse Redis / conversation history settings
+  const redisUrl = envConfig.REDIS_URL;
+  const redisKeyPrefix = envConfig.REDIS_KEY_PREFIX ?? 'oai-adapter:';
+
+  const conversationTtlSeconds = parseIntegerEnvVar(
+    envConfig.CONVERSATION_TTL_SECONDS,
+    'CONVERSATION_TTL_SECONDS',
+    86400,
+    1
+  );
+
+  const conversationMaxDepth = parseIntegerEnvVar(
+    envConfig.CONVERSATION_MAX_DEPTH,
+    'CONVERSATION_MAX_DEPTH',
+    75,
+    1
+  );
+
   return {
     targetUrl: envConfig.ADAPTER_TARGET_URL,
     modelMappingFile: envConfig.MODEL_API_MAPPING_FILE,
@@ -262,6 +297,10 @@ export async function loadConfiguration(): Promise<AdapterConfig> {
     upstreamTimeoutSeconds,
     maxConcurrentConnections,
     maxRequestSizeBytes,
-    maxJsonDepth
+    maxJsonDepth,
+    redisUrl,
+    redisKeyPrefix,
+    conversationTtlSeconds,
+    conversationMaxDepth,
   };
 }

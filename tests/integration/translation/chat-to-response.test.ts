@@ -18,7 +18,12 @@ describe('Chat to Response Translation Integration', () => {
     maxRequestSizeBytes: 10 * 1024 * 1024,
     maxJsonDepth: 100,
     upstreamTimeoutSeconds: 30,
-    maxConcurrentConnections: 1000
+    maxConcurrentConnections: 1000,
+    modelMappingFile: '/dev/null',
+    redisUrl: 'redis://localhost:6379',
+    redisKeyPrefix: 'oai-adapter:',
+    conversationTtlSeconds: 86400,
+    conversationMaxDepth: 75,
   };
 
   beforeEach(async () => {

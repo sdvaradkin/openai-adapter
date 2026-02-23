@@ -6,6 +6,8 @@ describe('loadEnvConfig', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    // REDIS_URL is required by the schema; set a default for all tests
+    process.env.REDIS_URL = 'redis://localhost:6379';
   });
 
   afterEach(() => {
@@ -57,5 +59,13 @@ describe('loadEnvConfig', () => {
     process.env.MODEL_API_MAPPING_FILE = '/path/to/mapping.json';
 
     expect(() => loadEnvConfig()).toThrow();
+  });
+
+  it('should throw when REDIS_URL is missing', () => {
+    process.env.ADAPTER_TARGET_URL = 'https://api.openai.com/v1';
+    process.env.MODEL_API_MAPPING_FILE = '/path/to/mapping.json';
+    delete process.env.REDIS_URL;
+
+    expect(() => loadEnvConfig()).toThrow(/REDIS_URL/);
   });
 });

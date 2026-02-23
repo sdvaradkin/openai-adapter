@@ -7,6 +7,8 @@ describe('Configuration Loading - Validation Limits', () => {
   beforeEach(() => {
     // Save current environment
     process.env = { ...originalEnv };
+    // REDIS_URL is required by the schema; set a default for all tests
+    process.env.REDIS_URL = 'redis://localhost:6379';
   });
 
   afterEach(() => {

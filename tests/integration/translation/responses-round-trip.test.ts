@@ -14,7 +14,12 @@ const testConfig: AdapterConfig = {
   maxRequestSizeBytes: 10485760,
   maxJsonDepth: 100,
   upstreamTimeoutSeconds: 30,
-  maxConcurrentConnections: 1000
+  maxConcurrentConnections: 1000,
+  modelMappingFile: '/dev/null',
+  redisUrl: 'redis://localhost:6379',
+  redisKeyPrefix: 'oai-adapter:',
+  conversationTtlSeconds: 86400,
+  conversationMaxDepth: 75,
 };
 
 function makeChatCompletionsBody(text = 'Hi there!'): Record<string, unknown> {
